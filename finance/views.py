@@ -1,0 +1,307 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.db.models import Sum, Q, Count
+from decimal import Decimal
+import datetime
+from .models import Account, Transaction
+
+def register_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        confirm_password = request.POST.get('confirm_password')
+
+        if password != confirm_password:
+            messages.error(request, "Passwords do not match!")
+            return render(request, 'register.html')
+
+        if User.objects.filter(username=username).exists():
+            messages.error(request, "Username already taken!")
+            return render(request, 'register.html')
+
+        is_first_user = not User.objects.exists()
+        user = User.objects.create_user(username=username, email=email, password=password)
+        if is_first_user:
+            user.is_staff = True
+            user.is_superuser = True
+            user.save()
+            messages.success(request, f"Welcome {username}! As the first registered user, you have been granted Admin rights.")
+        else:
+            messages.success(request, f"Welcome to JK Wallet, {username}!")
+
+        login(request, user)
+        return redirect('dashboard')
+
+    return render(request, 'register.html')
+
+
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            messages.success(request, f"Welcome back, {user.username}!")
+            return redirect('dashboard')
+        else:
+            messages.error(request, "Invalid username or password.")
+            return render(request, 'login.html')
+
+    return render(request, 'login.html')
+
+
+def logout_view(request):
+    logout(request)
+    messages.info(request, "You have been logged out.")
+    return redirect('login')
+
+
+@login_required
+def dashboard(request):
+    accounts = Account.objects.filter(user=request.user, is_active=True)
+    
+    # Financial metrics calculations
+    total_net_worth = Decimal('0.00')
+    bank_balance = Decimal('0.00')
+    cash_balance = Decimal('0.00')
+    credit_outstanding = Decimal('0.00')
+    total_credit_limit = Decimal('0.00')
+    demat_invested = Decimal('0.00')
+    demat_cash = Decimal('0.00')
+
+    for acc in accounts:
+        if acc.account_type in ['BANK', 'WALLET']:
+            bank_balance += acc.current_balance
+            total_net_worth += acc.current_balance
+        elif acc.account_type == 'CASH':
+            cash_balance += acc.current_balance
+            total_net_worth += acc.current_balance
+        elif acc.account_type == 'CREDIT_CARD':
+            total_credit_limit += (acc.credit_limit or Decimal('0.00'))
+            if acc.credit_limit:
+                outstanding = max(Decimal('0.00'), acc.credit_limit - acc.current_balance)
+                credit_outstanding += outstanding
+                total_net_worth -= outstanding
+        elif acc.account_type == 'DEMAT':
+            demat_cash += acc.current_balance
+            demat_invested += (acc.invested_amount or Decimal('0.00'))
+            total_net_worth += (acc.current_balance + (acc.invested_amount or Decimal('0.00')))
+
+    # Recent Transactions
+    recent_transactions = Transaction.objects.filter(user=request.user)[:10]
+    
+    context = {
+        'accounts': accounts,
+        'total_net_worth': total_net_worth,
+        'bank_balance': bank_balance,
+        'cash_balance': cash_balance,
+        'credit_outstanding': credit_outstanding,
+        'total_credit_limit': total_credit_limit,
+        'demat_invested': demat_invested,
+        'demat_cash': demat_cash,
+        'recent_transactions': recent_transactions,
+        'today_date': datetime.date.today().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'dashboard.html', context)
+
+
+@login_required
+def admin_settings(request):
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "Access denied. Admin privileges required.")
+        return redirect('dashboard')
+
+    users = User.objects.annotate(
+        account_count=Count('accounts', distinct=True),
+        transaction_count=Count('transactions', distinct=True)
+    ).order_by('-date_joined')
+
+    all_accounts = Account.objects.all().select_related('user')
+    all_transactions = Transaction.objects.all().select_related('user')
+
+    context = {
+        'users_list': users,
+        'total_users': users.count(),
+        'total_accounts': all_accounts.count(),
+        'total_transactions': all_transactions.count(),
+        'all_accounts': all_accounts,
+        'all_transactions': all_transactions[:20],
+    }
+    return render(request, 'admin_settings.html', context)
+
+
+@login_required
+def toggle_user_status(request, user_id):
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+    
+    target_user = get_object_or_404(User, id=user_id)
+    if target_user == request.user:
+        messages.error(request, "You cannot alter your own admin status!")
+        return redirect('admin_settings')
+
+    target_user.is_staff = not target_user.is_staff
+    target_user.is_superuser = target_user.is_staff
+    target_user.save()
+
+    status_str = "Admin" if target_user.is_staff else "Regular User"
+    messages.success(request, f"User '{target_user.username}' status changed to {status_str}.")
+    return redirect('admin_settings')
+
+
+@login_required
+def add_account(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        account_type = request.POST.get('account_type')
+        institution_name = request.POST.get('institution_name', '')
+        account_number_last4 = request.POST.get('account_number_last4', '')
+        current_balance = Decimal(request.POST.get('current_balance', '0.00') or '0.00')
+        credit_limit = Decimal(request.POST.get('credit_limit', '0.00') or '0.00')
+        card_due_date = request.POST.get('card_due_date') or None
+        invested_amount = Decimal(request.POST.get('invested_amount', '0.00') or '0.00')
+        color_hex = request.POST.get('color_hex', '#6366f1')
+        icon = request.POST.get('icon', 'fa-wallet')
+        notes = request.POST.get('notes', '')
+
+        Account.objects.create(
+            user=request.user,
+            name=name,
+            account_type=account_type,
+            institution_name=institution_name,
+            account_number_last4=account_number_last4,
+            current_balance=current_balance,
+            credit_limit=credit_limit if account_type == 'CREDIT_CARD' else None,
+            card_due_date=int(card_due_date) if card_due_date else None,
+            invested_amount=invested_amount if account_type == 'DEMAT' else Decimal('0.00'),
+            color_hex=color_hex,
+            icon=icon,
+            notes=notes
+        )
+        messages.success(request, f"Account '{name}' added successfully!")
+        return redirect('dashboard')
+    
+    return redirect('dashboard')
+
+
+@login_required
+def edit_account(request, account_id):
+    account = get_object_or_404(Account, id=account_id, user=request.user)
+    if request.method == 'POST':
+        account.name = request.POST.get('name', account.name)
+        account.institution_name = request.POST.get('institution_name', account.institution_name)
+        account.account_number_last4 = request.POST.get('account_number_last4', account.account_number_last4)
+        
+        # Balance updates
+        account.current_balance = Decimal(request.POST.get('current_balance', account.current_balance) or '0.00')
+        
+        if account.account_type == 'CREDIT_CARD':
+            account.credit_limit = Decimal(request.POST.get('credit_limit', account.credit_limit) or '0.00')
+            due_date = request.POST.get('card_due_date')
+            account.card_due_date = int(due_date) if due_date else None
+
+        if account.account_type == 'DEMAT':
+            account.invested_amount = Decimal(request.POST.get('invested_amount', account.invested_amount) or '0.00')
+
+        account.color_hex = request.POST.get('color_hex', account.color_hex)
+        account.icon = request.POST.get('icon', account.icon)
+        account.notes = request.POST.get('notes', account.notes)
+        account.save()
+
+        messages.success(request, f"Account '{account.name}' updated successfully!")
+        return redirect('dashboard')
+    
+    return redirect('dashboard')
+
+
+@login_required
+def add_transaction(request):
+    if request.method == 'POST':
+        t_type = request.POST.get('transaction_type')
+        category = request.POST.get('category', 'OTHERS')
+        amount = Decimal(request.POST.get('amount', '0.00'))
+        date_str = request.POST.get('date') or datetime.date.today().strftime('%Y-%m-%d')
+        description = request.POST.get('description', '')
+        recipient_name = request.POST.get('recipient_name', '')
+        
+        src_id = request.POST.get('source_account')
+        dest_id = request.POST.get('destination_account')
+        
+        source_acc = Account.objects.filter(id=src_id, user=request.user).first() if src_id else None
+        dest_acc = Account.objects.filter(id=dest_id, user=request.user).first() if dest_id else None
+
+        # Execute Financial Balance Logic
+        if t_type == 'EXPENSE':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+        elif t_type == 'INCOME':
+            if dest_acc:
+                dest_acc.current_balance += amount
+                dest_acc.save()
+        elif t_type == 'TRANSFER':
+            if source_acc and dest_acc:
+                source_acc.current_balance -= amount
+                dest_acc.current_balance += amount
+                source_acc.save()
+                dest_acc.save()
+        elif t_type == 'PAY_PEOPLE':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+        elif t_type == 'CARD_PAYMENT':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+            if dest_acc and dest_acc.account_type == 'CREDIT_CARD':
+                dest_acc.current_balance += amount
+                dest_acc.save()
+        elif t_type == 'DEMAT_DEPOSIT':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+            if dest_acc and dest_acc.account_type == 'DEMAT':
+                dest_acc.current_balance += amount
+                dest_acc.save()
+        elif t_type == 'DEMAT_WITHDRAWAL':
+            if source_acc and source_acc.account_type == 'DEMAT':
+                source_acc.current_balance -= amount
+                source_acc.save()
+            if dest_acc:
+                dest_acc.current_balance += amount
+                dest_acc.save()
+
+        Transaction.objects.create(
+            user=request.user,
+            transaction_type=t_type,
+            category=category,
+            amount=amount,
+            source_account=source_acc,
+            destination_account=dest_acc,
+            recipient_name=recipient_name,
+            description=description,
+            date=date_str
+        )
+
+        messages.success(request, f"Transaction of ₹{amount:,.2f} recorded successfully!")
+        return redirect('dashboard')
+
+    return redirect('dashboard')
+
+
+@login_required
+def transactions_list(request):
+    transactions = Transaction.objects.filter(user=request.user)
+    accounts = Account.objects.filter(user=request.user, is_active=True)
+    return render(request, 'transactions.html', {'transactions': transactions, 'accounts': accounts})

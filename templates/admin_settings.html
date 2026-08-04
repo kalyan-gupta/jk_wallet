@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard - JK Wallet{% endblock %}
+{% block page_title %}Admin Control Panel{% endblock %}
+{% block page_subtitle %}Manage app users, inspect system-wide financial accounts & system activity{% endblock %}
+
+{% block content %}
+<!-- System Overview Stats -->
+<div class="card-grid">
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Total Registered Users</span>
+            <div class="stat-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">
+                <i class="fa-solid fa-users"></i>
+            </div>
+        </div>
+        <div class="stat-value">{{ total_users }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Active accounts in app</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Total System Accounts</span>
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-success);">
+                <i class="fa-solid fa-wallet"></i>
+            </div>
+        </div>
+        <div class="stat-value">{{ total_accounts }}</div>
+        <div style="font-size: 0.8rem; color: var(--accent-success);">Banks, Cards, Wallets & Demat</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Total System Transactions</span>
+            <div class="stat-icon" style="background: rgba(192, 132, 252, 0.15); color: #c084fc;">
+                <i class="fa-solid fa-receipt"></i>
+            </div>
+        </div>
+        <div class="stat-value">{{ total_transactions }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Recorded across all users</div>
+    </div>
+</div>
+
+<!-- User Management Table -->
+<div style="margin-bottom: 2.5rem;">
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem; color: var(--text-primary);">
+        <i class="fa-solid fa-users-gear" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> User Role & Privileges Management
+    </h2>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Date Joined</th>
+                    <th>Accounts Count</th>
+                    <th>Transactions Count</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users_list %}
+                <tr>
+                    <td>#{{ u.id }}</td>
+                    <td>
+                        <strong>{{ u.username }}</strong>
+                        {% if u == request.user %}
+                            <span class="account-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-success); margin-left: 6px;">You</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ u.email|default:"N/A" }}</td>
+                    <td>
+                        {% if u.is_staff or u.is_superuser %}
+                            <span class="account-badge" style="background: rgba(192, 132, 252, 0.2); color: #c084fc;">Admin</span>
+                        {% else %}
+                            <span class="account-badge" style="background: rgba(100, 116, 139, 0.2); color: var(--text-secondary);">User</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ u.date_joined|date:"Y-m-d H:i" }}</td>
+                    <td>{{ u.account_count }}</td>
+                    <td>{{ u.transaction_count }}</td>
+                    <td>
+                        {% if u != request.user %}
+                            <a href="{% url 'toggle_user_status' u.id %}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;">
+                                {% if u.is_staff %}<i class="fa-solid fa-user-minus"></i> Revoke Admin{% else %}<i class="fa-solid fa-user-shield"></i> Make Admin{% endif %}
+                            </a>
+                        {% else %}
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- System Wide Financial Accounts -->
+<div>
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem; color: var(--text-primary);">
+        <i class="fa-solid fa-database" style="color: var(--accent-success); margin-right: 0.5rem;"></i> System-Wide Accounts Log
+    </h2>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Owner User</th>
+                    <th>Account Name</th>
+                    <th>Type</th>
+                    <th>Institution</th>
+                    <th>Current Balance</th>
+                    <th>Credit Limit</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for acc in all_accounts %}
+                <tr>
+                    <td><strong>{{ acc.user.username|default:"System Default" }}</strong></td>
+                    <td>{{ acc.name }}</td>
+                    <td><span class="account-badge" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">{{ acc.get_account_type_display }}</span></td>
+                    <td>{{ acc.institution_name|default:"-" }}</td>
+                    <td style="font-weight: 700;">₹{{ acc.current_balance|floatformat:2 }}</td>
+                    <td>{% if acc.credit_limit %}₹{{ acc.credit_limit|floatformat:2 }}{% else %}-{% endif %}</td>
+                    <td>{% if acc.is_active %}<span style="color: var(--accent-success); font-weight: 600;">Active</span>{% else %}<span style="color: var(--text-muted);">Inactive</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted);">No accounts found in system.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: jk_wallet_app
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-@iuwxto1+n7c4jxx7@eqfv=^swz)aju4h+9ebs@4haca0h_v%1

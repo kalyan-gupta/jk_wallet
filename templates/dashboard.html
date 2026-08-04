@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - JK Wallet{% endblock %}
+{% block page_title %}Financial Dashboard{% endblock %}
+{% block page_subtitle %}Real-time summary of your Bank accounts, Credit Cards, Cash & Demat portfolio{% endblock %}
+
+{% block content %}
+<!-- Quick Stat Summary Cards -->
+<div class="card-grid">
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Total Net Worth</span>
+            <div class="stat-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">
+                <i class="fa-solid fa-vault"></i>
+            </div>
+        </div>
+        <div class="stat-value">₹{{ total_net_worth|floatformat:2 }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Assets minus Credit Card debts</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Bank Accounts</span>
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-success);">
+                <i class="fa-solid fa-building-columns"></i>
+            </div>
+        </div>
+        <div class="stat-value">₹{{ bank_balance|floatformat:2 }}</div>
+        <div style="font-size: 0.8rem; color: var(--accent-success);">Liquid Bank & Wallet Cash</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Credit Card Outstanding</span>
+            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-danger);">
+                <i class="fa-regular fa-credit-card"></i>
+            </div>
+        </div>
+        <div class="stat-value">₹{{ credit_outstanding|floatformat:2 }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Max Limit: ₹{{ total_credit_limit|floatformat:2 }}</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Demat & Investments</span>
+            <div class="stat-icon" style="background: rgba(192, 132, 252, 0.15); color: #c084fc;">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+        </div>
+        <div class="stat-value">₹{{ demat_invested|floatformat:2 }}</div>
+        <div style="font-size: 0.8rem; color: #c084fc;">Cash Balance: ₹{{ demat_cash|floatformat:2 }}</div>
+    </div>
+</div>
+
+<!-- Quick Action Buttons -->
+<div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
+    <button class="btn btn-primary" onclick="openModal('transactionModal')">
+        <i class="fa-solid fa-plus"></i> Add Transaction
+    </button>
+    <button class="btn btn-secondary" onclick="openModal('accountModal')">
+        <i class="fa-solid fa-plus-circle"></i> Add Account / Wallet / Card
+    </button>
+</div>
+
+<!-- Accounts List Section -->
+<div style="margin-bottom: 2rem;">
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem; color: var(--text-primary);">Your Accounts & Cards</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem;">
+        {% for acc in accounts %}
+        <div class="account-card-modern" style="border-top: 3px solid {{ acc.color_hex }};">
+            <div>
+                <div class="account-top">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background: {{ acc.color_hex }}22; color: {{ acc.color_hex }}; display: flex; align-items: center; justify-content: center;">
+                            <i class="fa-solid {{ acc.icon }}"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 1.05rem; color: var(--text-primary);">{{ acc.name }}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">{{ acc.institution_name|default:acc.get_account_type_display }}</div>
+                        </div>
+                    </div>
+                    <button onclick="editAccount('{{ acc.id }}', '{{ acc.name }}', '{{ acc.account_type }}', '{{ acc.institution_name|default:'' }}', '{{ acc.account_number_last4|default:'' }}', '{{ acc.current_balance }}', '{{ acc.credit_limit|default:'0.00' }}', '{{ acc.card_due_date|default:'' }}', '{{ acc.invested_amount|default:'0.00' }}', '{{ acc.color_hex }}', '{{ acc.icon }}')" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                </div>
+
+                {% if acc.account_type == 'CREDIT_CARD' %}
+                    <div class="account-balance-title">Available Limit</div>
+                    <div class="account-balance-amount">₹{{ acc.current_balance|floatformat:2 }}</div>
+                    <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                        Total Limit: <strong>₹{{ acc.credit_limit|floatformat:2 }}</strong><br>
+                        Due Date: Day <strong>{{ acc.card_due_date|default:'N/A' }}</strong> of month
+                    </div>
+                {% elif acc.account_type == 'DEMAT' %}
+                    <div class="account-balance-title">Invested Portfolio</div>
+                    <div class="account-balance-amount">₹{{ acc.invested_amount|floatformat:2 }}</div>
+                    <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                        Available Uninvested Cash: <strong>₹{{ acc.current_balance|floatformat:2 }}</strong>
+                    </div>
+                {% else %}
+                    <div class="account-balance-title">Current Balance</div>
+                    <div class="account-balance-amount">₹{{ acc.current_balance|floatformat:2 }}</div>
+                    {% if acc.account_number_last4 %}
+                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">A/C: ****{{ acc.account_number_last4 }}</div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div style="grid-column: 1 / -1; padding: 2rem; background: var(--glass-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); text-align: center; color: var(--text-muted);">
+            No accounts added yet. Click "Add Account / Wallet / Card" to set up your financial tracking!
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div>
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem; color: var(--text-primary);">Recent Activity</h2>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Source / Dest</th>
+                    <th>Recipient / Reason</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in recent_transactions %}
+                <tr>
+                    <td>{{ t.date }}</td>
+                    <td>
+                        <span class="account-badge" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">
+                            {{ t.get_transaction_type_display }}
+                        </span>
+                    </td>
+                    <td>{{ t.get_category_display }}</td>
+                    <td>
+                        {% if t.source_account %}{{ t.source_account.name }}{% endif %}
+                        {% if t.source_account and t.destination_account %} &rarr; {% endif %}
+                        {% if t.destination_account %}{{ t.destination_account.name }}{% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ t.recipient_name }}</strong>
+                        {% if t.description %}<br><small style="color: var(--text-muted);">{{ t.description }}</small>{% endif %}
+                    </td>
+                    <td style="font-weight: 700; color: {% if t.transaction_type == 'EXPENSE' or t.transaction_type == 'PAY_PEOPLE' %}var(--accent-danger){% elif t.transaction_type == 'INCOME' %}var(--accent-success){% else %}var(--text-primary){% endif %};">
+                        {% if t.transaction_type == 'EXPENSE' or t.transaction_type == 'PAY_PEOPLE' %}-{% elif t.transaction_type == 'INCOME' %}+{% endif %}₹{{ t.amount|floatformat:2 }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: var(--text-muted);">No recent transactions.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Add Account -->
+<div class="modal" id="accountModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 1.25rem; font-size: 1.25rem;" id="accountModalTitle">Add Financial Account / Card</h3>
+        <form method="POST" action="{% url 'add_account' %}" id="accountForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Account Name</label>
+                <input type="text" name="name" id="acc_name" class="form-control" placeholder="e.g. HDFC Savings, ICICI Rubyx Card, Zerodha Demat" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Account Type</label>
+                <select name="account_type" id="acc_type" class="form-select" onchange="toggleAccountFields()">
+                    <option value="BANK">Bank Account</option>
+                    <option value="CASH">Cash Wallet</option>
+                    <option value="WALLET">Digital Wallet / UPI</option>
+                    <option value="CREDIT_CARD">Credit Card</option>
+                    <option value="DEMAT">Demat / Investment Account</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Institution / Bank Name</label>
+                <input type="text" name="institution_name" id="acc_institution" class="form-control" placeholder="e.g. HDFC Bank, SBI, Paytm">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Current Cash Balance / Available Limit (₹)</label>
+                <input type="number" step="0.01" name="current_balance" id="acc_balance" class="form-control" value="0.00" required>
+            </div>
+
+            <!-- Credit Card Specific -->
+            <div id="creditCardFields" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">Max Credit Limit (₹)</label>
+                    <input type="number" step="0.01" name="credit_limit" id="acc_credit_limit" class="form-control" value="0.00">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Card Bill Due Date (Day of Month: 1-31)</label>
+                    <input type="number" name="card_due_date" id="acc_due_date" class="form-control" placeholder="e.g. 15">
+                </div>
+            </div>
+
+            <!-- Demat Specific -->
+            <div id="dematFields" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">Total Invested Portfolio Capital (₹)</label>
+                    <input type="number" step="0.01" name="invested_amount" id="acc_invested" class="form-control" value="0.00">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Save Account</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('accountModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Add Transaction -->
+<div class="modal" id="transactionModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 1.25rem; font-size: 1.25rem;">Record Transaction</h3>
+        <form method="POST" action="{% url 'add_transaction' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Transaction Type</label>
+                <select name="transaction_type" id="t_type" class="form-select" onchange="toggleTransactionFields()">
+                    <option value="EXPENSE">Expense / Purchase</option>
+                    <option value="INCOME">Income / Deposit</option>
+                    <option value="TRANSFER">Internal Account Transfer</option>
+                    <option value="PAY_PEOPLE">Paid to External Person / Bank</option>
+                    <option value="CARD_PAYMENT">Credit Card Bill Payment</option>
+                    <option value="DEMAT_DEPOSIT">Deposit into Demat Account</option>
+                    <option value="DEMAT_WITHDRAWAL">Withdrawal from Demat Account</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Category / Reason</label>
+                <select name="category" class="form-select">
+                    <option value="FOOD">Food & Dining</option>
+                    <option value="SHOPPING">Shopping & Electronics</option>
+                    <option value="BILLS">Utilities & Bills</option>
+                    <option value="SALARY">Salary & Income</option>
+                    <option value="RENT">Rent & Housing</option>
+                    <option value="INVESTMENT">Investments & Mutual Funds</option>
+                    <option value="CARD_BILL">Credit Card Bill</option>
+                    <option value="TRANSFER">Account Transfer</option>
+                    <option value="OTHERS">Others / Misc</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Amount (₹)</label>
+                <input type="number" step="0.01" name="amount" class="form-control" required placeholder="0.00">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" name="date" class="form-control" value="{{ today_date }}" required>
+            </div>
+
+            <div class="form-group" id="sourceAccGroup">
+                <label class="form-label" id="sourceAccLabel">Source Account / Wallet</label>
+                <select name="source_account" class="form-select">
+                    <option value="">-- Select Source Account --</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} (Bal: ₹{{ acc.current_balance|floatformat:2 }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" id="destAccGroup" style="display: none;">
+                <label class="form-label" id="destAccLabel">Destination Account</label>
+                <select name="destination_account" class="form-select">
+                    <option value="">-- Select Destination Account --</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.get_account_type_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Recipient / Person Name (Optional)</label>
+                <input type="text" name="recipient_name" class="form-control" placeholder="e.g. John, Amazon, Electricity Board">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description / Notes</label>
+                <textarea name="description" class="form-control" rows="2" placeholder="Reason for transaction"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Add Transaction</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('transactionModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openModal(id) {
+    document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+}
+
+function toggleAccountFields() {
+    const type = document.getElementById('acc_type').value;
+    document.getElementById('creditCardFields').style.display = (type === 'CREDIT_CARD') ? 'block' : 'none';
+    document.getElementById('dematFields').style.display = (type === 'DEMAT') ? 'block' : 'none';
+}
+
+function toggleTransactionFields() {
+    const type = document.getElementById('t_type').value;
+    const destGroup = document.getElementById('destAccGroup');
+    if (type === 'TRANSFER' || type === 'CARD_PAYMENT' || type === 'DEMAT_DEPOSIT' || type === 'DEMAT_WITHDRAWAL' || type === 'INCOME') {
+        destGroup.style.display = 'block';
+    } else {
+        destGroup.style.display = 'none';
+    }
+}
+
+function editAccount(id, name, type, inst, last4, balance, creditLimit, dueDate, invested, color, icon) {
+    document.getElementById('accountModalTitle').innerText = 'Edit Account / Credit Limit';
+    document.getElementById('accountForm').action = `/accounts/${id}/edit/`;
+    document.getElementById('acc_name').value = name;
+    document.getElementById('acc_type').value = type;
+    document.getElementById('acc_institution').value = inst;
+    document.getElementById('acc_balance').value = balance;
+    document.getElementById('acc_credit_limit').value = creditLimit;
+    document.getElementById('acc_due_date').value = dueDate;
+    document.getElementById('acc_invested').value = invested;
+    toggleAccountFields();
+    openModal('accountModal');
+}
+</script>
+{% endblock %}

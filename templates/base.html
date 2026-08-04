@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="glass">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}JK Wallet - Personal Finance Manager{% endblock %}</title>
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand-header">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <span class="brand-title">JK Wallet</span>
+            </div>
+            
+            <ul class="nav-menu">
+                {% if user.is_authenticated %}
+                <li>
+                    <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        <i class="fa-solid fa-chart-pie"></i> Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'transactions_list' %}" class="nav-link {% if request.resolver_match.url_name == 'transactions_list' %}active{% endif %}">
+                        <i class="fa-solid fa-receipt"></i> Transactions
+                    </a>
+                </li>
+                {% if user.is_staff %}
+                <li>
+                    <a href="{% url 'admin_settings' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_settings' %}active{% endif %}">
+                        <i class="fa-solid fa-user-gear"></i> Admin Panel
+                    </a>
+                </li>
+                {% endif %}
+                <li style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); padding: 0 1rem 0.5rem 1rem;">Logged in as <strong>{{ user.username }}</strong></div>
+                    <a href="{% url 'logout' %}" class="nav-link" style="color: var(--accent-danger);">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </a>
+                </li>
+                {% else %}
+                <li>
+                    <a href="{% url 'login' %}" class="nav-link {% if request.resolver_match.url_name == 'login' %}active{% endif %}">
+                        <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'register' %}" class="nav-link {% if request.resolver_match.url_name == 'register' %}active{% endif %}">
+                        <i class="fa-solid fa-user-plus"></i> Register
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="main-wrapper">
+            <!-- Header Top Bar -->
+            <header class="top-bar">
+                <div class="page-title-box">
+                    <h1>{% block page_title %}Overview{% endblock %}</h1>
+                    <p>{% block page_subtitle %}Track your balance, cards, cash & Demat investments{% endblock %}</p>
+                </div>
+                
+                <!-- Theme Switcher -->
+                <div class="theme-selector">
+                    <button class="theme-btn" data-theme-val="light" onclick="setTheme('light')">
+                        <i class="fa-regular fa-sun"></i> Light
+                    </button>
+                    <button class="theme-btn" data-theme-val="dark" onclick="setTheme('dark')">
+                        <i class="fa-regular fa-moon"></i> Dark
+                    </button>
+                    <button class="theme-btn active" data-theme-val="glass" onclick="setTheme('glass')">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Glass
+                    </button>
+                </div>
+            </header>
+
+            <!-- Notifications / Messages -->
+            {% if messages %}
+                <div style="padding: 1rem 2rem 0 2rem;">
+                    {% for message in messages %}
+                        <div style="background: var(--bg-surface); border: 1px solid var(--accent-success); color: var(--text-primary); padding: 0.85rem 1.25rem; border-radius: var(--radius-md); font-weight: 500;">
+                            <i class="fa-solid fa-circle-check" style="color: var(--accent-success); margin-right: 0.5rem;"></i> {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Page Content -->
+            <main class="content-body">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+
+        <!-- Mobile Bottom Nav -->
+        <nav class="mobile-nav">
+            <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <i class="fa-solid fa-chart-pie"></i>
+            </a>
+            <a href="{% url 'transactions_list' %}" class="nav-link {% if request.resolver_match.url_name == 'transactions_list' %}active{% endif %}">
+                <i class="fa-solid fa-receipt"></i>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Theme Switcher Script -->
+    <script>
+        function setTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            localStorage.setItem('jk_wallet_theme', themeName);
+            
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-theme-val') === themeName) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // Initialize saved theme
+        (function() {
+            const savedTheme = localStorage.getItem('jk_wallet_theme') || 'glass';
+            setTheme(savedTheme);
+        })();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
