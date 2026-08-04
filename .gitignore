@@ -40,3 +40,6 @@ staticfiles/
 .idea/
 .DS_Store
 Thumbs.db
+
+misc.txt
+.env

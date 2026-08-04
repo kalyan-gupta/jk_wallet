@@ -1,32 +1,22 @@
 import os
-import secrets
 from pathlib import Path
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Read .env file if present
 ENV_FILE = BASE_DIR / '.env'
-
-def get_or_create_env_secret():
-    if not ENV_FILE.exists():
-        secret = secrets.token_urlsafe(50)
-        with open(ENV_FILE, 'w') as f:
-            f.write(f"# Auto-generated env file for JK Wallet\n")
-            f.write(f"SECRET_KEY={secret}\n")
-            f.write(f"DEBUG=True\n")
-
-    # Read .env file
-    env_vars = {}
+env_vars = {}
+if ENV_FILE.exists():
     with open(ENV_FILE, 'r') as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
                 key, val = line.split('=', 1)
                 env_vars[key.strip()] = val.strip()
-    return env_vars
 
-_env = get_or_create_env_secret()
-
-SECRET_KEY = os.environ.get("SECRET_KEY", _env.get("SECRET_KEY", secrets.token_urlsafe(50)))
-DEBUG = os.environ.get("DEBUG", _env.get("DEBUG", "True")).lower() in ("true", "1", "t")
+SECRET_KEY = os.environ.get("SECRET_KEY", env_vars.get("SECRET_KEY", "django-insecure-jk-wallet-default-secret-key-change-in-prod"))
+DEBUG = os.environ.get("DEBUG", env_vars.get("DEBUG", "True")).lower() in ("true", "1", "t")
 
 ALLOWED_HOSTS = ["*"]
 
@@ -69,12 +59,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "jk_wallet.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# Database Configuration with Supabase PostgreSQL Fallback
+db_url = os.environ.get("DATABASE_URL", env_vars.get("DATABASE_URL"))
+
+if db_url:
+    DATABASES = {
+        "default": dj_database_url.parse(db_url, conn_max_age=600, ssl_require=False)
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
