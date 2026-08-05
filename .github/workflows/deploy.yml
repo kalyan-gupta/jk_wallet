@@ -1,0 +1,47 @@
+name: Deploy to Render
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Specific Commit SHA to deploy (Leave blank for latest main HEAD)'
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Commit & Trigger Render Deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          RAW_COMMIT="${{ inputs.commit_sha }}"
+          
+          if [ -z "$RAW_COMMIT" ]; then
+            COMMIT="${{ github.sha }}"
+            echo "No commit SHA specified. Defaulting to latest main HEAD ($COMMIT)."
+          else
+            echo "Verifying provided commit: '$RAW_COMMIT'..."
+            if ! FULL_SHA=$(git rev-parse --verify --quiet "$RAW_COMMIT"); then
+              echo "Error: Commit '$RAW_COMMIT' does not exist in this repository!"
+              exit 1
+            fi
+            COMMIT="$FULL_SHA"
+            echo "Successfully verified commit. Full SHA: $COMMIT"
+          fi
+
+          echo "Triggering Render deployment for commit: $COMMIT"
+          curl --fail --request POST \
+            --url "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            --header "Accept: application/json" \
+            --header "Authorization: Bearer $RENDER_API_KEY" \
+            --header "Content-Type: application/json" \
+            --data "{\"commitId\": \"$COMMIT\"}"
+
