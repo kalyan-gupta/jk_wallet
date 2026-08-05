@@ -1,0 +1,37 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Specific Commit SHA to deploy (Leave blank for latest main HEAD)'
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }} # Render API Key (from Render Account Settings -> API Keys)
+          SERVICE_ID: "srv-d9pd5ou1egvs73f7rlg0"         # Your Render Service ID
+        run: |
+          COMMIT="${{ inputs.commit_sha }}"
+          
+          # If no commit SHA entered, fallback to GitHub workflow SHA (latest commit)
+          if [ -z "$COMMIT" ]; then
+            COMMIT="${{ github.sha }}"
+          fi
+
+          echo "Deploying commit SHA: $COMMIT to Render service $SERVICE_ID"
+
+          curl --request POST \
+            --url "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            --header "Accept: application/json" \
+            --header "Authorization: Bearer $RENDER_API_KEY" \
+            --header "Content-Type: application/json" \
+            --data "{\"commitId\": \"$COMMIT\"}"
