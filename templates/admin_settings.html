@@ -41,6 +41,29 @@
     </div>
 </div>
 
+<!-- Global System Settings -->
+<div style="margin-bottom: 2.5rem; background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: var(--glass-blur); border-radius: var(--radius-lg); padding: 1.5rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h2 style="font-size: 1.1rem; color: var(--text-primary); margin-bottom: 0.25rem;">
+                <i class="fa-solid fa-user-plus" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> Public User Registration
+            </h2>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">
+                Control whether new users are allowed to self-register for an account on the sign-up page.
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'toggle_registration_setting' %}" class="btn {% if registration_enabled %}btn-danger{% else %}btn-primary{% endif %}" style="padding: 0.5rem 1.25rem; font-weight: 600;">
+                {% if registration_enabled %}
+                    <i class="fa-solid fa-user-xmark"></i> Disable Registration
+                {% else %}
+                    <i class="fa-solid fa-user-check"></i> Enable Registration
+                {% endif %}
+            </a>
+        </div>
+    </div>
+</div>
+
 <!-- User Management Table -->
 <div style="margin-bottom: 2.5rem;">
     <h2 style="font-size: 1.25rem; margin-bottom: 1rem; color: var(--text-primary);">

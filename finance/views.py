@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.db import connection
 from decimal import Decimal
 import datetime
-from .models import Account, Transaction
+from .models import Account, Transaction, SystemSetting
 
 def health_check(request):
     db_status = "healthy"
@@ -27,6 +27,12 @@ def health_check(request):
 def register_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
+
+    registration_enabled = SystemSetting.get_setting('registration_enabled', 'true').lower() == 'true'
+    if not registration_enabled:
+        messages.error(request, "New user registration is currently disabled by the administrator.")
+        return render(request, 'register.html', {'registration_disabled': True})
+
     if request.method == 'POST':
         username = request.POST.get('username')
         email = request.POST.get('email')
@@ -145,6 +151,8 @@ def admin_settings(request):
     all_accounts = Account.objects.all().select_related('user')
     all_transactions = Transaction.objects.all().select_related('user')
 
+    registration_enabled = SystemSetting.get_setting('registration_enabled', 'true').lower() == 'true'
+
     context = {
         'users_list': users,
         'total_users': users.count(),
@@ -152,8 +160,24 @@ def admin_settings(request):
         'total_transactions': all_transactions.count(),
         'all_accounts': all_accounts,
         'all_transactions': all_transactions[:20],
+        'registration_enabled': registration_enabled,
     }
     return render(request, 'admin_settings.html', context)
+
+
+@login_required
+def toggle_registration_setting(request):
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+
+    current_val = SystemSetting.get_setting('registration_enabled', 'true').lower() == 'true'
+    new_val = 'false' if current_val else 'true'
+    SystemSetting.set_setting('registration_enabled', new_val)
+
+    msg = "User registration has been disabled." if new_val == 'false' else "User registration has been enabled."
+    messages.success(request, msg)
+    return redirect('admin_settings')
 
 
 @login_required

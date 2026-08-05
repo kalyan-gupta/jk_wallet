@@ -10,6 +10,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('', views.dashboard, name='dashboard'),
     path('admin-panel/', views.admin_settings, name='admin_settings'),
+    path('admin-panel/toggle-registration/', views.toggle_registration_setting, name='toggle_registration_setting'),
     path('admin-panel/toggle-user/<int:user_id>/', views.toggle_user_status, name='toggle_user_status'),
     path('accounts/add/', views.add_account, name='add_account'),
     path('accounts/<int:account_id>/edit/', views.edit_account, name='edit_account'),

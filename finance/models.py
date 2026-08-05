@@ -99,3 +99,24 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.amount} on {self.date}"
+
+
+class SystemSetting(models.Model):
+    key = models.CharField(max_length=50, unique=True)
+    value = models.CharField(max_length=255, default='true')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.key}={self.value}"
+
+    @classmethod
+    def get_setting(cls, key, default='true'):
+        setting, _ = cls.objects.get_or_create(key=key, defaults={'value': default})
+        return setting.value
+
+    @classmethod
+    def set_setting(cls, key, value):
+        setting, _ = cls.objects.get_or_create(key=key)
+        setting.value = str(value)
+        setting.save()
+        return setting.value
