@@ -4,9 +4,25 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Sum, Q, Count
+from django.http import JsonResponse
+from django.db import connection
 from decimal import Decimal
 import datetime
 from .models import Account, Transaction
+
+def health_check(request):
+    db_status = "healthy"
+    try:
+        connection.ensure_connection()
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+    
+    return JsonResponse({
+        "status": "ok",
+        "database": db_status,
+        "timestamp": datetime.datetime.utcnow().isoformat()
+    })
+
 
 def register_view(request):
     if request.user.is_authenticated:
