@@ -63,9 +63,14 @@ WSGI_APPLICATION = "jk_wallet.wsgi.application"
 db_url = os.environ.get("DATABASE_URL", env_vars.get("DATABASE_URL"))
 
 if db_url:
-    DATABASES = {
-        "default": dj_database_url.parse(db_url, conn_max_age=600, ssl_require=False)
-    }
+    try:
+        DATABASES = {
+            "default": dj_database_url.config(default=db_url, conn_max_age=600, ssl_require=False)
+        }
+    except Exception:
+        DATABASES = {
+            "default": dj_database_url.parse(db_url, conn_max_age=600, ssl_require=False)
+        }
 else:
     DATABASES = {
         "default": {
