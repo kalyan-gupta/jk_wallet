@@ -16,4 +16,6 @@ urlpatterns = [
     path('accounts/<int:account_id>/edit/', views.edit_account, name='edit_account'),
     path('transactions/', views.transactions_list, name='transactions_list'),
     path('transactions/add/', views.add_transaction, name='add_transaction'),
+    path('transactions/<int:transaction_id>/edit/', views.edit_transaction, name='edit_transaction'),
+    path('transactions/<int:transaction_id>/delete/', views.delete_transaction, name='delete_transaction'),
 ]

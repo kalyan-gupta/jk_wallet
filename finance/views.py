@@ -345,3 +345,181 @@ def transactions_list(request):
     transactions = Transaction.objects.filter(user=request.user)
     accounts = Account.objects.filter(user=request.user, is_active=True)
     return render(request, 'transactions.html', {'transactions': transactions, 'accounts': accounts})
+
+
+@login_required
+def edit_transaction(request, transaction_id):
+    transaction = get_object_or_404(Transaction, id=transaction_id, user=request.user)
+    if request.method == 'POST':
+        # Revert the old transaction balance impacts first
+        old_amount = transaction.amount
+        old_type = transaction.transaction_type
+        old_src = transaction.source_account
+        old_dest = transaction.destination_account
+
+        if old_type == 'EXPENSE':
+            if old_src:
+                old_src.current_balance += old_amount
+                old_src.save()
+        elif old_type == 'INCOME':
+            if old_dest:
+                old_dest.current_balance -= old_amount
+                old_dest.save()
+        elif old_type == 'TRANSFER':
+            if old_src and old_dest:
+                old_src.current_balance += old_amount
+                old_dest.current_balance -= old_amount
+                old_src.save()
+                old_dest.save()
+        elif old_type == 'PAY_PEOPLE':
+            if old_src:
+                old_src.current_balance += old_amount
+                old_src.save()
+        elif old_type == 'CARD_PAYMENT':
+            if old_src:
+                old_src.current_balance += old_amount
+                old_src.save()
+            if old_dest and old_dest.account_type == 'CREDIT_CARD':
+                old_dest.current_balance -= old_amount
+                old_dest.save()
+        elif old_type == 'DEMAT_DEPOSIT':
+            if old_src:
+                old_src.current_balance += old_amount
+                old_src.save()
+            if old_dest and old_dest.account_type == 'DEMAT':
+                old_dest.current_balance -= old_amount
+                old_dest.save()
+        elif old_type == 'DEMAT_WITHDRAWAL':
+            if old_src and old_src.account_type == 'DEMAT':
+                old_src.current_balance += old_amount
+                old_src.save()
+            if old_dest:
+                old_dest.current_balance -= old_amount
+                old_dest.save()
+
+        # Fetch new post data
+        t_type = request.POST.get('transaction_type')
+        category = request.POST.get('category', 'OTHERS')
+        amount = Decimal(request.POST.get('amount', '0.00'))
+        date_str = request.POST.get('date') or datetime.date.today().strftime('%Y-%m-%d')
+        description = request.POST.get('description', '')
+        recipient_name = request.POST.get('recipient_name', '')
+        
+        src_id = request.POST.get('source_account')
+        dest_id = request.POST.get('destination_account')
+        
+        source_acc = Account.objects.filter(id=src_id, user=request.user).first() if src_id else None
+        dest_acc = Account.objects.filter(id=dest_id, user=request.user).first() if dest_id else None
+
+        # Execute new financial balance logic
+        if t_type == 'EXPENSE':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+        elif t_type == 'INCOME':
+            if dest_acc:
+                dest_acc.current_balance += amount
+                dest_acc.save()
+        elif t_type == 'TRANSFER':
+            if source_acc and dest_acc:
+                source_acc.current_balance -= amount
+                dest_acc.current_balance += amount
+                source_acc.save()
+                dest_acc.save()
+        elif t_type == 'PAY_PEOPLE':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+        elif t_type == 'CARD_PAYMENT':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+            if dest_acc and dest_acc.account_type == 'CREDIT_CARD':
+                dest_acc.current_balance += amount
+                dest_acc.save()
+        elif t_type == 'DEMAT_DEPOSIT':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+            if dest_acc and dest_acc.account_type == 'DEMAT':
+                dest_acc.current_balance += amount
+                dest_acc.save()
+        elif t_type == 'DEMAT_WITHDRAWAL':
+            if source_acc and source_acc.account_type == 'DEMAT':
+                source_acc.current_balance -= amount
+                source_acc.save()
+            if dest_acc:
+                dest_acc.current_balance += amount
+                dest_acc.save()
+
+        # Update and save the transaction object
+        transaction.transaction_type = t_type
+        transaction.category = category
+        transaction.amount = amount
+        transaction.source_account = source_acc
+        transaction.destination_account = dest_acc
+        transaction.recipient_name = recipient_name
+        transaction.description = description
+        transaction.date = date_str
+        transaction.save()
+
+        messages.success(request, f"Transaction updated successfully!")
+        return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
+
+    return redirect('dashboard')
+
+
+@login_required
+def delete_transaction(request, transaction_id):
+    transaction = get_object_or_404(Transaction, id=transaction_id, user=request.user)
+    
+    # Revert transaction balance impacts
+    amount = transaction.amount
+    t_type = transaction.transaction_type
+    src = transaction.source_account
+    dest = transaction.destination_account
+
+    if t_type == 'EXPENSE':
+        if src:
+            src.current_balance += amount
+            src.save()
+    elif t_type == 'INCOME':
+        if dest:
+            dest.current_balance -= amount
+            dest.save()
+    elif t_type == 'TRANSFER':
+        if src and dest:
+            src.current_balance += amount
+            dest.current_balance -= amount
+            src.save()
+            dest.save()
+    elif t_type == 'PAY_PEOPLE':
+        if src:
+            src.current_balance += amount
+            src.save()
+    elif t_type == 'CARD_PAYMENT':
+        if src:
+            src.current_balance += amount
+            src.save()
+        if dest and dest.account_type == 'CREDIT_CARD':
+            dest.current_balance -= amount
+            dest.save()
+    elif t_type == 'DEMAT_DEPOSIT':
+        if src:
+            src.current_balance += amount
+            src.save()
+        if dest and dest.account_type == 'DEMAT':
+            dest.current_balance -= amount
+            dest.save()
+    elif t_type == 'DEMAT_WITHDRAWAL':
+        if src and src.account_type == 'DEMAT':
+            src.current_balance += amount
+            src.save()
+        if dest:
+            dest.current_balance -= amount
+            dest.save()
+
+    transaction.delete()
+    messages.success(request, "Transaction deleted successfully!")
+    return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
+
