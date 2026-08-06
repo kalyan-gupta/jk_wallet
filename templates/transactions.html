@@ -5,6 +5,22 @@
 {% block page_subtitle %}Detailed log of all income, expenses, bank transfers & card payments{% endblock %}
 
 {% block content %}
+<!-- CSV Actions Toolbar -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 1rem; border-radius: var(--radius-md);">
+    <div>
+        <a href="{% url 'export_transactions_csv' %}" class="btn btn-secondary" style="border-color: var(--accent-success); color: var(--accent-success);">
+            <i class="fa-solid fa-file-export"></i> Export CSV
+        </a>
+    </div>
+    
+    <form method="POST" action="{% url 'import_transactions_csv' %}" enctype="multipart/form-data" style="display: flex; align-items: center; gap: 0.5rem;">
+        {% csrf_token %}
+        <input type="file" name="csv_file" class="form-control" accept=".csv" required style="max-width: 250px; padding: 4px 8px;">
+        <button type="submit" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;">
+            <i class="fa-solid fa-file-import"></i> Import CSV
+        </button>
+    </form>
+</div>
 <div class="table-container">
     <table class="custom-table">
         <thead>

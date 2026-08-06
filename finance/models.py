@@ -120,3 +120,39 @@ class SystemSetting(models.Model):
         setting.value = str(value)
         setting.save()
         return setting.value
+
+
+class Budget(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
+    category = models.CharField(max_length=30, choices=Transaction.CATEGORY_CHOICES)
+    amount_limit = models.DecimalField(max_digits=14, decimal_places=2)
+    month = models.IntegerField(help_text="Month number e.g. 8")
+    year = models.IntegerField(help_text="Year e.g. 2026")
+
+    class Meta:
+        unique_together = ('user', 'category', 'month', 'year')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.category} Budget: ₹{self.amount_limit} ({self.month}/{self.year})"
+
+
+class Debt(models.Model):
+    DEBT_TYPE_CHOICES = [
+        ('LENT', 'Lent to Someone'),
+        ('BORROWED', 'Borrowed from Someone'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='debts')
+    person_name = models.CharField(max_length=100)
+    debt_type = models.CharField(max_length=20, choices=DEBT_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    description = models.TextField(blank=True, null=True, help_text="Notes about the debt")
+    is_settled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.debt_type} - {self.person_name}: ₹{self.amount} (Settled: {self.is_settled})"
+

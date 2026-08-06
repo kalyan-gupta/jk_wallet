@@ -8,7 +8,8 @@ from django.http import JsonResponse
 from django.db import connection
 from decimal import Decimal
 import datetime
-from .models import Account, Transaction, SystemSetting
+from .models import Account, Transaction, SystemSetting, Budget, Debt
+import json
 
 def health_check(request):
     db_status = "healthy"
@@ -22,6 +23,7 @@ def health_check(request):
         "database": db_status,
         "timestamp": datetime.datetime.utcnow().isoformat()
     })
+
 
 
 def register_view(request):
@@ -121,6 +123,53 @@ def dashboard(request):
 
     # Recent Transactions
     recent_transactions = Transaction.objects.filter(user=request.user)[:10]
+
+    # Category Expenses Data (Current Month)
+    today = datetime.date.today()
+    start_of_month = datetime.date(today.year, today.month, 1)
+    
+    expenses_by_cat = Transaction.objects.filter(
+        user=request.user,
+        transaction_type__in=['EXPENSE', 'PAY_PEOPLE'],
+        date__gte=start_of_month,
+        date__lte=today
+    ).values('category').annotate(total=Sum('amount'))
+
+    category_labels = []
+    category_data = []
+    category_map = dict(Transaction.CATEGORY_CHOICES)
+    for ec in expenses_by_cat:
+        category_labels.append(category_map.get(ec['category'], ec['category']))
+        category_data.append(float(ec['total']))
+
+    # Budgets Summary
+    budgets = Budget.objects.filter(user=request.user, month=today.month, year=today.year)
+    budgets_list = []
+    for b in budgets:
+        # Sum spent in this category
+        spent = Transaction.objects.filter(
+            user=request.user,
+            category=b.category,
+            transaction_type__in=['EXPENSE', 'PAY_PEOPLE'],
+            date__gte=datetime.date(b.year, b.month, 1),
+            date__lte=datetime.date(b.year, b.month, 28) # rough fallback or actual end of month
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        pct = int((spent / b.amount_limit) * 100) if b.amount_limit else 0
+        budgets_list.append({
+            'id': b.id,
+            'category_name': category_map.get(b.category, b.category),
+            'category_code': b.category,
+            'limit': b.amount_limit,
+            'spent': spent,
+            'pct': pct,
+            'color': 'accent-danger' if pct > 90 else ('accent-warning' if pct > 70 else 'accent-success')
+        })
+
+    # Debts Summary
+    debts = Debt.objects.filter(user=request.user)
+    total_lent = debts.filter(debt_type='LENT', is_settled=False).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_borrowed = debts.filter(debt_type='BORROWED', is_settled=False).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     
     context = {
         'accounts': accounts,
@@ -132,7 +181,16 @@ def dashboard(request):
         'demat_invested': demat_invested,
         'demat_cash': demat_cash,
         'recent_transactions': recent_transactions,
-        'today_date': datetime.date.today().strftime('%Y-%m-%d'),
+        'today_date': today.strftime('%Y-%m-%d'),
+        
+        # New Features Context
+        'chart_labels_json': json.dumps(category_labels),
+        'chart_data_json': json.dumps(category_data),
+        'budgets_list': budgets_list,
+        'debts': debts,
+        'total_lent': total_lent,
+        'total_borrowed': total_borrowed,
+        'category_choices': Transaction.CATEGORY_CHOICES,
     }
     return render(request, 'dashboard.html', context)
 
@@ -522,4 +580,155 @@ def delete_transaction(request, transaction_id):
     transaction.delete()
     messages.success(request, "Transaction deleted successfully!")
     return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
+
+
+@login_required
+def add_or_update_budget(request):
+    if request.method == 'POST':
+        category = request.POST.get('category')
+        amount_limit = Decimal(request.POST.get('amount_limit', '0.00'))
+        today = datetime.date.today()
+        
+        budget, created = Budget.objects.update_or_create(
+            user=request.user,
+            category=category,
+            month=today.month,
+            year=today.year,
+            defaults={'amount_limit': amount_limit}
+        )
+        
+        status_msg = "created" if created else "updated"
+        messages.success(request, f"Budget for {budget.get_category_display()} {status_msg} successfully!")
+        
+    return redirect('dashboard')
+
+
+@login_required
+def delete_budget(request, budget_id):
+    budget = get_object_or_404(Budget, id=budget_id, user=request.user)
+    category_display = budget.get_category_display()
+    budget.delete()
+    messages.success(request, f"Budget for {category_display} removed.")
+    return redirect('dashboard')
+
+
+@login_required
+def add_debt(request):
+    if request.method == 'POST':
+        person_name = request.POST.get('person_name')
+        debt_type = request.POST.get('debt_type')
+        amount = Decimal(request.POST.get('amount', '0.00'))
+        description = request.POST.get('description', '')
+        
+        Debt.objects.create(
+            user=request.user,
+            person_name=person_name,
+            debt_type=debt_type,
+            amount=amount,
+            description=description
+        )
+        messages.success(request, f"Recorded debt of ₹{amount:,.2f} associated with {person_name}!")
+        
+    return redirect('dashboard')
+
+
+@login_required
+def toggle_settle_debt(request, debt_id):
+    debt = get_object_or_404(Debt, id=debt_id, user=request.user)
+    debt.is_settled = not debt.is_settled
+    debt.save()
+    
+    status_str = "settled" if debt.is_settled else "unsettled"
+    messages.success(request, f"Debt for {debt.person_name} marked as {status_str}.")
+    return redirect('dashboard')
+
+
+@login_required
+def delete_debt(request, debt_id):
+    debt = get_object_or_404(Debt, id=debt_id, user=request.user)
+    person = debt.person_name
+    debt.delete()
+    messages.success(request, f"Debt log for {person} deleted.")
+    return redirect('dashboard')
+
+
+@login_required
+def export_transactions_csv(request):
+    import csv
+    from django.http import HttpResponse
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="transactions_export.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Date', 'Type', 'Category', 'Source Account', 'Destination Account', 'Recipient Name', 'Amount', 'Description'])
+
+    transactions = Transaction.objects.filter(user=request.user)
+    for t in transactions:
+        writer.writerow([
+            t.date.strftime('%Y-%m-%d'),
+            t.transaction_type,
+            t.category,
+            t.source_account.name if t.source_account else '',
+            t.destination_account.name if t.destination_account else '',
+            t.recipient_name or '',
+            t.amount,
+            t.description or ''
+        ])
+
+    return response
+
+
+@login_required
+def import_transactions_csv(request):
+    import csv
+    import io
+
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, "File is not a CSV!")
+            return redirect('transactions_list')
+
+        try:
+            data_set = csv_file.read().decode('UTF-8')
+            io_string = io.StringIO(data_set)
+            reader = csv.reader(io_string, delimiter=',', quotechar='"')
+            
+            # Skip header
+            header = next(reader, None)
+            
+            success_count = 0
+            for row in reader:
+                if not row or len(row) < 7:
+                    continue
+                
+                date_str, t_type, category, src_name, dest_name, recipient_name, amount_str = row[:7]
+                desc = row[8] if len(row) > 7 else ''
+                
+                # Fetch accounts
+                source_acc = Account.objects.filter(name=src_name, user=request.user).first() if src_name else None
+                dest_acc = Account.objects.filter(name=dest_name, user=request.user).first() if dest_name else None
+                amount = Decimal(amount_str or '0.00')
+
+                # Create the transaction record (without modifying balances - import is history log)
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type=t_type,
+                    category=category,
+                    amount=amount,
+                    source_account=source_acc,
+                    destination_account=dest_acc,
+                    recipient_name=recipient_name,
+                    description=desc,
+                    date=date_str
+                )
+                success_count += 1
+                
+            messages.success(request, f"Successfully imported {success_count} transactions!")
+        except Exception as e:
+            messages.error(request, f"Failed to import CSV: {str(e)}")
+
+    return redirect('transactions_list')
+
 

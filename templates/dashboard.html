@@ -60,6 +60,12 @@
     <button class="btn btn-secondary" onclick="openModal('accountModal')">
         <i class="fa-solid fa-plus-circle"></i> Add Account / Wallet / Card
     </button>
+    <button class="btn btn-secondary" onclick="openModal('budgetModal')" style="border-color: var(--accent-warning);">
+        <i class="fa-solid fa-bullseye"></i> Set Budgets
+    </button>
+    <button class="btn btn-secondary" onclick="openModal('debtModal')" style="border-color: var(--accent-danger);">
+        <i class="fa-solid fa-hand-holding-dollar"></i> Track Lent / Borrowed
+    </button>
 </div>
 
 <!-- Accounts List Section -->
@@ -111,6 +117,95 @@
             No accounts added yet. Click "Add Account / Wallet / Card" to set up your financial tracking!
         </div>
         {% endfor %}
+    </div>
+</div>
+
+<!-- Analytics, Budgets & Debts Panel -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Visual Analytics Chart Card -->
+    <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-md); display: flex; flex-direction: column;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-primary);">
+            <i class="fa-solid fa-chart-pie" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> Monthly Expense Breakdown
+        </h3>
+        <div style="flex: 1; min-height: 220px; position: relative;">
+            <canvas id="expenseChart"></canvas>
+            <div id="noChartData" style="display: none; position: absolute; inset: 0; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.9rem;">
+                No expense data recorded this month.
+            </div>
+        </div>
+    </div>
+
+    <!-- Budgets Meter Card -->
+    <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-md);">
+        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-primary);">
+            <i class="fa-solid fa-bullseye" style="color: var(--accent-warning); margin-right: 0.5rem;"></i> Budgets & Limits
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem; max-height: 240px; overflow-y: auto; padding-right: 0.25rem;">
+            {% for b in budgets_list %}
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                    <strong>{{ b.category_name }}</strong>
+                    <span style="color: var(--text-secondary);">₹{{ b.spent|floatformat:0 }} / ₹{{ b.limit|floatformat:0 }} ({{ b.pct }}%)</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; position: relative;">
+                    <div style="width: {% if b.pct > 100 %}100{% else %}{{ b.pct }}{% endif %}%; height: 100%; background: var(--{{ b.color }}); border-radius: 4px;"></div>
+                </div>
+                <div style="text-align: right; margin-top: 0.25rem;">
+                    <a href="{% url 'delete_budget' b.id %}" style="font-size: 0.75rem; color: var(--text-muted); text-decoration: none;">
+                        <i class="fa-solid fa-trash-can"></i> Remove
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div style="color: var(--text-muted); text-align: center; padding: 2rem 0; font-size: 0.9rem;">
+                No budgets set for this month. Set one above!
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Debt Tracker Ledger Card -->
+    <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-md);">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--text-primary);">
+            <i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent-danger); margin-right: 0.5rem;"></i> Lent & Borrowed
+        </h3>
+        <div style="display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+            <div style="flex: 1;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Lent</div>
+                <div style="font-weight: 700; color: var(--accent-success); font-size: 1.1rem;">₹{{ total_lent|floatformat:2 }}</div>
+            </div>
+            <div style="flex: 1; border-left: 1px solid var(--border-color); padding-left: 1rem;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Borrowed</div>
+                <div style="font-weight: 700; color: var(--accent-danger); font-size: 1.1rem;">₹{{ total_borrowed|floatformat:2 }}</div>
+            </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 180px; overflow-y: auto; padding-right: 0.25rem;">
+            {% for d in debts %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); border-left: 3px solid {% if d.debt_type == 'LENT' %}var(--accent-success){% else %}var(--accent-danger){% endif %}; opacity: {% if d.is_settled %}0.5{% else %}1{% endif %};">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.9rem;">
+                        {{ d.person_name }} <span style="font-size: 0.75rem; color: var(--text-muted);">({% if d.debt_type == 'LENT' %}Lent{% else %}Borrowed{% endif %})</span>
+                    </div>
+                    {% if d.description %}<div style="font-size: 0.75rem; color: var(--text-muted);">{{ d.description }}</div>{% endif %}
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-weight: 700; font-size: 0.95rem; color: {% if d.debt_type == 'LENT' %}var(--accent-success){% else %}var(--accent-danger){% endif %};">
+                        ₹{{ d.amount|floatformat:0 }}
+                    </span>
+                    <a href="{% url 'toggle_settle_debt' d.id %}" class="btn" style="padding: 2px 6px; font-size: 0.7rem; background: {% if d.is_settled %}var(--text-muted){% else %}var(--accent-primary){% endif %}; color: #fff;" title="Toggle settle state">
+                        {% if d.is_settled %}Unsettle{% else %}Settle{% endif %}
+                    </a>
+                    <a href="{% url 'delete_debt' d.id %}" style="color: var(--text-muted); font-size: 0.8rem; text-decoration: none;" title="Delete ledger">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div style="color: var(--text-muted); text-align: center; padding: 1rem 0; font-size: 0.9rem;">
+                No active loans or borrowings tracked.
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 
@@ -314,6 +409,65 @@
         </form>
     </div>
 </div>
+
+<!-- Modal: Set Monthly Budget -->
+<div class="modal" id="budgetModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 1.25rem; font-size: 1.25rem;">Set Monthly Budget</h3>
+        <form method="POST" action="{% url 'add_or_update_budget' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select" required>
+                    {% for cat_code, cat_name in category_choices %}
+                    <option value="{{ cat_code }}">{{ cat_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Monthly Limit (₹)</label>
+                <input type="number" step="0.01" name="amount_limit" class="form-control" required placeholder="5000.00">
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Save Budget</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('budgetModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Track Lent/Borrowed Debt -->
+<div class="modal" id="debtModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 1.25rem; font-size: 1.25rem;">Track Lent or Borrowed Loan</h3>
+        <form method="POST" action="{% url 'add_debt' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Person Name</label>
+                <input type="text" name="person_name" class="form-control" required placeholder="e.g. John Doe, Sarah">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Relationship / Type</label>
+                <select name="debt_type" class="form-select" required>
+                    <option value="LENT">Lent to Someone</option>
+                    <option value="BORROWED">Borrowed from Someone</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Amount (₹)</label>
+                <input type="number" step="0.01" name="amount" class="form-control" required placeholder="1000.00">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description / Notes</label>
+                <input type="text" name="description" class="form-control" placeholder="e.g. Lunch split, trip expenses">
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Save Entry</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('debtModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -371,5 +525,55 @@ function editTransaction(id, type, category, amount, date, sourceAccId, destAccI
     toggleTransactionFields();
     openModal('transactionModal');
 }
+
+// Chart.js Configuration
+document.addEventListener("DOMContentLoaded", function() {
+    const labels = {{ chart_labels_json|safe }};
+    const data = {{ chart_data_json|safe }};
+    
+    if (labels.length === 0) {
+        document.getElementById('noChartData').style.display = 'flex';
+        document.getElementById('expenseChart').style.display = 'none';
+        return;
+    }
+    
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: [
+                    '#6366f1', // Indigo
+                    '#10b981', // Success
+                    '#f59e0b', // Warning
+                    '#ef4444', // Danger
+                    '#c084fc', // Purple
+                    '#3b82f6', // Blue
+                    '#ec4899', // Pink
+                    '#14b8a6'  // Teal
+                ],
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: 'var(--text-primary)',
+                        font: {
+                            family: 'Outfit'
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
 </script>
 {% endblock %}
