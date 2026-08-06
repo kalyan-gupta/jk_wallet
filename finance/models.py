@@ -3,6 +3,36 @@ from django.core.validators import MinValueValidator
 from django.contrib.auth.models import User
 from decimal import Decimal
 
+DEFAULT_CATEGORIES = [
+    ('FOOD', 'Food & Dining'),
+    ('SHOPPING', 'Shopping & Electronics'),
+    ('BILLS', 'Utilities & Bills'),
+    ('SALARY', 'Salary & Income'),
+    ('RENT', 'Rent & Housing'),
+    ('INVESTMENT', 'Investments & Mutual Funds'),
+    ('TRANSFER', 'Account Transfer'),
+    ('CARD_BILL', 'Credit Card Bill'),
+    ('ENTERTAINMENT', 'Entertainment & Subscriptions'),
+    ('OTHERS', 'Others / Misc'),
+]
+
+class TransactionCategory(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        verbose_name_plural = "Transaction Categories"
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def get_all_categories(cls):
+        if not cls.objects.exists():
+            for code, name in DEFAULT_CATEGORIES:
+                cls.objects.create(code=code, name=name)
+        return cls.objects.all()
+
 class Account(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='accounts')
 
@@ -99,6 +129,12 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.amount} on {self.date}"
+
+    @property
+    def category_display(self):
+        cat = TransactionCategory.objects.filter(code=self.category).first()
+        return cat.name if cat else self.category
+
 
 
 class SystemSetting(models.Model):

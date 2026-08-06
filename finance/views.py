@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.db import connection
 from decimal import Decimal
 import datetime
-from .models import Account, Transaction, SystemSetting, Budget, Debt
+from .models import Account, Transaction, SystemSetting, Budget, Debt, TransactionCategory
 import json
 
 def health_check(request):
@@ -137,7 +137,8 @@ def dashboard(request):
 
     category_labels = []
     category_data = []
-    category_map = dict(Transaction.CATEGORY_CHOICES)
+    db_categories = TransactionCategory.get_all_categories()
+    category_map = {cat.code: cat.name for cat in db_categories}
     for ec in expenses_by_cat:
         category_labels.append(category_map.get(ec['category'], ec['category']))
         category_data.append(float(ec['total']))
@@ -190,7 +191,7 @@ def dashboard(request):
         'debts': debts,
         'total_lent': total_lent,
         'total_borrowed': total_borrowed,
-        'category_choices': Transaction.CATEGORY_CHOICES,
+        'category_choices': [(cat.code, cat.name) for cat in db_categories],
     }
     return render(request, 'dashboard.html', context)
 
@@ -211,6 +212,7 @@ def admin_settings(request):
 
     registration_enabled = SystemSetting.get_setting('registration_enabled', 'true').lower() == 'true'
 
+    categories = TransactionCategory.get_all_categories()
     context = {
         'users_list': users,
         'total_users': users.count(),
@@ -219,6 +221,7 @@ def admin_settings(request):
         'all_accounts': all_accounts,
         'all_transactions': all_transactions[:20],
         'registration_enabled': registration_enabled,
+        'categories': categories,
     }
     return render(request, 'admin_settings.html', context)
 
@@ -402,7 +405,43 @@ def add_transaction(request):
 def transactions_list(request):
     transactions = Transaction.objects.filter(user=request.user)
     accounts = Account.objects.filter(user=request.user, is_active=True)
-    return render(request, 'transactions.html', {'transactions': transactions, 'accounts': accounts})
+    
+    # Query parameters
+    q = request.GET.get('q', '').strip()
+    t_type = request.GET.get('transaction_type', '').strip()
+    category = request.GET.get('category', '').strip()
+    account_id = request.GET.get('account', '').strip()
+    start_date = request.GET.get('start_date', '').strip()
+    end_date = request.GET.get('end_date', '').strip()
+    
+    if q:
+        transactions = transactions.filter(Q(description__icontains=q) | Q(recipient_name__icontains=q))
+    if t_type:
+        transactions = transactions.filter(transaction_type=t_type)
+    if category:
+        transactions = transactions.filter(category=category)
+    if account_id:
+        transactions = transactions.filter(Q(source_account_id=account_id) | Q(destination_account_id=account_id))
+    if start_date:
+        transactions = transactions.filter(date__gte=start_date)
+    if end_date:
+        transactions = transactions.filter(date__lte=end_date)
+        
+    db_categories = TransactionCategory.get_all_categories()
+    context = {
+        'transactions': transactions,
+        'accounts': accounts,
+        'q': q,
+        'selected_type': t_type,
+        'selected_category': category,
+        'selected_account': account_id,
+        'start_date': start_date,
+        'end_date': end_date,
+        'transaction_types': Transaction.TRANSACTION_TYPE_CHOICES,
+        'categories': [(cat.code, cat.name) for cat in db_categories],
+    }
+    return render(request, 'transactions.html', context)
+
 
 
 @login_required
@@ -828,5 +867,58 @@ def import_transactions_csv(request):
             messages.error(request, f"Failed to import CSV: {str(e)}")
 
     return redirect('transactions_list')
+
+
+@login_required
+def add_category(request):
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        code = request.POST.get('code', '').strip().upper()
+        if not name or not code:
+            messages.error(request, "Both Name and Code are required!")
+        elif TransactionCategory.objects.filter(code=code).exists():
+            messages.error(request, f"Category with Code '{code}' already exists.")
+        else:
+            TransactionCategory.objects.create(code=code, name=name)
+            messages.success(request, f"Category '{name}' created successfully!")
+            
+    return redirect('admin_settings')
+
+
+@login_required
+def edit_category(request, category_id):
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+    
+    category = get_object_or_404(TransactionCategory, id=category_id)
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        if not name:
+            messages.error(request, "Category Name cannot be empty!")
+        else:
+            category.name = name
+            category.save()
+            messages.success(request, f"Category updated to '{name}' successfully.")
+            
+    return redirect('admin_settings')
+
+
+@login_required
+def delete_category(request, category_id):
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+    
+    category = get_object_or_404(TransactionCategory, id=category_id)
+    name = category.name
+    category.delete()
+    messages.success(request, f"Category '{name}' deleted successfully.")
+    return redirect('admin_settings')
+
 
 

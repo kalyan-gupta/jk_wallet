@@ -5,6 +5,62 @@
 {% block page_subtitle %}Detailed log of all income, expenses, bank transfers & card payments{% endblock %}
 
 {% block content %}
+<!-- Search and Filter Panel -->
+<div style="background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">
+        <i class="fa-solid fa-filter" style="color: var(--accent-primary);"></i> Filter Transactions
+    </h3>
+    <form method="GET" action="{% url 'transactions_list' %}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Search Description / Recipient</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search..." style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Transaction Type</label>
+            <select name="transaction_type" class="form-select" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+                <option value="">-- All Types --</option>
+                {% for code, name in transaction_types %}
+                <option value="{{ code }}" {% if selected_type == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Category</label>
+            <select name="category" class="form-select" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+                <option value="">-- All Categories --</option>
+                {% for code, name in categories %}
+                <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Account</label>
+            <select name="account" class="form-select" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+                <option value="">-- All Accounts --</option>
+                {% for acc in accounts %}
+                <option value="{{ acc.id }}" {% if selected_account == acc.id|stringformat:"s" %}selected{% endif %}>{{ acc.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}" class="form-control" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}" class="form-control" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; grid-column: span 1; height: 38px;">
+            <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.9rem; flex: 1;">
+                <i class="fa-solid fa-magnifying-glass"></i> Filter
+            </button>
+            <a href="{% url 'transactions_list' %}" class="btn btn-secondary" style="padding: 0.6rem 1.25rem; font-size: 0.9rem; text-decoration: none; text-align: center; display: inline-flex; align-items: center; justify-content: center; height: 100%; border: 1px solid var(--border-color); box-sizing: border-box;">
+                Reset
+            </a>
+        </div>
+    </form>
+</div>
+
 <!-- CSV Actions Toolbar -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 1rem; border-radius: var(--radius-md);">
     <div>
@@ -44,7 +100,7 @@
                         {{ t.get_transaction_type_display }}
                     </span>
                 </td>
-                <td>{{ t.get_category_display }}</td>
+                <td>{{ t.category_display }}</td>
                 <td>{% if t.source_account %}{{ t.source_account.name }}{% else %}<span style="color: var(--text-muted);">-</span>{% endif %}</td>
                 <td>{% if t.destination_account %}{{ t.destination_account.name }}{% else %}<span style="color: var(--text-muted);">-</span>{% endif %}</td>
                 <td>
@@ -98,15 +154,9 @@
             <div class="form-group">
                 <label class="form-label">Category / Reason</label>
                 <select name="category" id="t_category" class="form-select">
-                    <option value="FOOD">Food & Dining</option>
-                    <option value="SHOPPING">Shopping & Electronics</option>
-                    <option value="BILLS">Utilities & Bills</option>
-                    <option value="SALARY">Salary & Income</option>
-                    <option value="RENT">Rent & Housing</option>
-                    <option value="INVESTMENT">Investments & Mutual Funds</option>
-                    <option value="CARD_BILL">Credit Card Bill</option>
-                    <option value="TRANSFER">Account Transfer</option>
-                    <option value="OTHERS">Others / Misc</option>
+                    {% for code, name in categories %}
+                    <option value="{{ code }}">{{ name }}</option>
+                    {% endfor %}
                 </select>
             </div>
 

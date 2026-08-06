@@ -31,4 +31,10 @@ urlpatterns = [
     # CSV Tools
     path('transactions/export-csv/', views.export_transactions_csv, name='export_transactions_csv'),
     path('transactions/import-csv/', views.import_transactions_csv, name='import_transactions_csv'),
+    
+    # Categories management
+    path('admin-panel/categories/add/', views.add_category, name='add_category'),
+    path('admin-panel/categories/<int:category_id>/edit/', views.edit_category, name='edit_category'),
+    path('admin-panel/categories/<int:category_id>/delete/', views.delete_category, name='delete_category'),
 ]
+

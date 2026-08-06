@@ -234,7 +234,7 @@
                             {{ t.get_transaction_type_display }}
                         </span>
                     </td>
-                    <td>{{ t.get_category_display }}</td>
+                    <td>{{ t.category_display }}</td>
                     <td>
                         {% if t.source_account %}{{ t.source_account.name }}{% endif %}
                         {% if t.source_account and t.destination_account %} &rarr; {% endif %}
@@ -350,15 +350,9 @@
             <div class="form-group">
                 <label class="form-label">Category / Reason</label>
                 <select name="category" id="t_category" class="form-select">
-                    <option value="FOOD">Food & Dining</option>
-                    <option value="SHOPPING">Shopping & Electronics</option>
-                    <option value="BILLS">Utilities & Bills</option>
-                    <option value="SALARY">Salary & Income</option>
-                    <option value="RENT">Rent & Housing</option>
-                    <option value="INVESTMENT">Investments & Mutual Funds</option>
-                    <option value="CARD_BILL">Credit Card Bill</option>
-                    <option value="TRANSFER">Account Transfer</option>
-                    <option value="OTHERS">Others / Misc</option>
+                    {% for cat_code, cat_name in category_choices %}
+                    <option value="{{ cat_code }}">{{ cat_name }}</option>
+                    {% endfor %}
                 </select>
             </div>
 
