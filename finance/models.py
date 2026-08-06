@@ -145,6 +145,8 @@ class Debt(models.Model):
     person_name = models.CharField(max_length=100)
     debt_type = models.CharField(max_length=20, choices=DEBT_TYPE_CHOICES)
     amount = models.DecimalField(max_digits=14, decimal_places=2)
+    # Linked account where money goes out/comes in
+    account = models.ForeignKey(Account, on_delete=models.SET_NULL, null=True, blank=True, related_name='debts', help_text="Linked financial account")
     description = models.TextField(blank=True, null=True, help_text="Notes about the debt")
     is_settled = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

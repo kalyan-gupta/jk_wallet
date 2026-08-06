@@ -619,12 +619,25 @@ def add_debt(request):
         debt_type = request.POST.get('debt_type')
         amount = Decimal(request.POST.get('amount', '0.00'))
         description = request.POST.get('description', '')
+        account_id = request.POST.get('account')
         
+        acc = Account.objects.filter(id=account_id, user=request.user).first() if account_id else None
+        
+        # Deduct or Add to account balance immediately when creating the debt record
+        if acc:
+            if debt_type == 'LENT':
+                acc.current_balance -= amount
+                acc.save()
+            elif debt_type == 'BORROWED':
+                acc.current_balance += amount
+                acc.save()
+
         Debt.objects.create(
             user=request.user,
             person_name=person_name,
             debt_type=debt_type,
             amount=amount,
+            account=acc,
             description=description
         )
         messages.success(request, f"Recorded debt of ₹{amount:,.2f} associated with {person_name}!")
@@ -636,6 +649,24 @@ def add_debt(request):
 def toggle_settle_debt(request, debt_id):
     debt = get_object_or_404(Debt, id=debt_id, user=request.user)
     debt.is_settled = not debt.is_settled
+    
+    # Adjust linked account balance upon settling
+    acc = debt.account
+    if acc:
+        if debt.is_settled:
+            # Settle means we receive the lent money back (+) or pay the borrowed money back (-)
+            if debt.debt_type == 'LENT':
+                acc.current_balance += debt.amount
+            elif debt.debt_type == 'BORROWED':
+                acc.current_balance -= debt.amount
+        else:
+            # Unsettling reverses the settlement
+            if debt.debt_type == 'LENT':
+                acc.current_balance -= debt.amount
+            elif debt.debt_type == 'BORROWED':
+                acc.current_balance += debt.amount
+        acc.save()
+        
     debt.save()
     
     status_str = "settled" if debt.is_settled else "unsettled"
