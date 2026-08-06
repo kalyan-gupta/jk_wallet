@@ -5,6 +5,78 @@
 {% block page_subtitle %}Detailed log of all income, expenses, bank transfers & card payments{% endblock %}
 
 {% block content %}
+<!-- Search and Filter Panel -->
+<div style="background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">
+        <i class="fa-solid fa-filter" style="color: var(--accent-primary);"></i> Filter Transactions
+    </h3>
+    <form method="GET" action="{% url 'transactions_list' %}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Search Description / Recipient</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search..." style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Transaction Type</label>
+            <select name="transaction_type" class="form-select" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+                <option value="">-- All Types --</option>
+                {% for code, name in transaction_types %}
+                <option value="{{ code }}" {% if selected_type == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Category</label>
+            <select name="category" class="form-select" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+                <option value="">-- All Categories --</option>
+                {% for code, name in categories %}
+                <option value="{{ code }}" {% if selected_category == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Account</label>
+            <select name="account" class="form-select" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+                <option value="">-- All Accounts --</option>
+                {% for acc in accounts %}
+                <option value="{{ acc.id }}" {% if selected_account == acc.id|stringformat:"s" %}selected{% endif %}>{{ acc.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}" class="form-control" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.8rem; margin-bottom: 0.25rem;">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}" class="form-control" style="padding: 0.6rem 0.85rem; font-size: 0.9rem;">
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; grid-column: span 1; height: 38px;">
+            <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.9rem; flex: 1;">
+                <i class="fa-solid fa-magnifying-glass"></i> Filter
+            </button>
+            <a href="{% url 'transactions_list' %}" class="btn btn-secondary" style="padding: 0.6rem 1.25rem; font-size: 0.9rem; text-decoration: none; text-align: center; display: inline-flex; align-items: center; justify-content: center; height: 100%; border: 1px solid var(--border-color); box-sizing: border-box;">
+                Reset
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- CSV Actions Toolbar -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 1rem; border-radius: var(--radius-md);">
+    <div>
+        <a href="{% url 'export_transactions_csv' %}" class="btn btn-secondary" style="border-color: var(--accent-success); color: var(--accent-success);">
+            <i class="fa-solid fa-file-export"></i> Export CSV
+        </a>
+    </div>
+    
+    <form method="POST" action="{% url 'import_transactions_csv' %}" enctype="multipart/form-data" style="display: flex; align-items: center; gap: 0.5rem;">
+        {% csrf_token %}
+        <input type="file" name="csv_file" class="form-control" accept=".csv" required style="max-width: 250px; padding: 4px 8px;">
+        <button type="submit" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;">
+            <i class="fa-solid fa-file-import"></i> Import CSV
+        </button>
+    </form>
+</div>
 <div class="table-container">
     <table class="custom-table">
         <thead>
@@ -16,6 +88,7 @@
                 <th>Destination Account</th>
                 <th>Recipient / Description</th>
                 <th>Amount</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -27,7 +100,7 @@
                         {{ t.get_transaction_type_display }}
                     </span>
                 </td>
-                <td>{{ t.get_category_display }}</td>
+                <td>{{ t.category_display }}</td>
                 <td>{% if t.source_account %}{{ t.source_account.name }}{% else %}<span style="color: var(--text-muted);">-</span>{% endif %}</td>
                 <td>{% if t.destination_account %}{{ t.destination_account.name }}{% else %}<span style="color: var(--text-muted);">-</span>{% endif %}</td>
                 <td>
@@ -37,10 +110,20 @@
                 <td style="font-weight: 700; color: {% if t.transaction_type == 'EXPENSE' or t.transaction_type == 'PAY_PEOPLE' %}var(--accent-danger){% elif t.transaction_type == 'INCOME' %}var(--accent-success){% else %}var(--text-primary){% endif %};">
                     {% if t.transaction_type == 'EXPENSE' or t.transaction_type == 'PAY_PEOPLE' %}-{% elif t.transaction_type == 'INCOME' %}+{% endif %}₹{{ t.amount|floatformat:2 }}
                 </td>
+                <td>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button onclick="editTransaction('{{ t.id }}', '{{ t.transaction_type }}', '{{ t.category }}', '{{ t.amount }}', '{{ t.date|date:'Y-m-d' }}', '{{ t.source_account.id|default:'' }}', '{{ t.destination_account.id|default:'' }}', '{{ t.recipient_name|default:'' }}', '{{ t.description|default:'' }}')" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Edit">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <a href="{% url 'delete_transaction' t.id %}" onclick="return confirm('Are you sure you want to delete this transaction? This will revert balance updates.')" style="color: var(--accent-danger); text-decoration: none;" title="Delete">
+                            <i class="fa-solid fa-trash"></i>
+                        </a>
+                    </div>
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
                     No transactions recorded yet. Return to Dashboard to add your first transaction!
                 </td>
             </tr>
@@ -48,4 +131,118 @@
         </tbody>
     </table>
 </div>
+
+<!-- Modal: Edit Transaction -->
+<div class="modal" id="transactionModal">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 1.25rem; font-size: 1.25rem;" id="transactionModalTitle">Edit Transaction</h3>
+        <form method="POST" action="" id="transactionForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Transaction Type</label>
+                <select name="transaction_type" id="t_type" class="form-select" onchange="toggleTransactionFields()">
+                    <option value="EXPENSE">Expense / Purchase</option>
+                    <option value="INCOME">Income / Deposit</option>
+                    <option value="TRANSFER">Internal Account Transfer</option>
+                    <option value="PAY_PEOPLE">Paid to External Person / Bank</option>
+                    <option value="CARD_PAYMENT">Credit Card Bill Payment</option>
+                    <option value="DEMAT_DEPOSIT">Deposit into Demat Account</option>
+                    <option value="DEMAT_WITHDRAWAL">Withdrawal from Demat Account</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Category / Reason</label>
+                <select name="category" id="t_category" class="form-select">
+                    {% for code, name in categories %}
+                    <option value="{{ code }}">{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Amount (₹)</label>
+                <input type="number" step="0.01" name="amount" id="t_amount" class="form-control" required placeholder="0.00">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" name="date" id="t_date" class="form-control" required>
+            </div>
+
+            <div class="form-group" id="sourceAccGroup">
+                <label class="form-label" id="sourceAccLabel">Source Account / Wallet</label>
+                <select name="source_account" id="t_source_account" class="form-select">
+                    <option value="">-- Select Source Account --</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} (Bal: ₹{{ acc.current_balance|floatformat:2 }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" id="destAccGroup" style="display: none;">
+                <label class="form-label" id="destAccLabel">Destination Account</label>
+                <select name="destination_account" id="t_destination_account" class="form-select">
+                    <option value="">-- Select Destination Account --</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.get_account_type_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Recipient / Person Name (Optional)</label>
+                <input type="text" name="recipient_name" id="t_recipient_name" class="form-control" placeholder="e.g. John, Amazon, Electricity Board">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description / Notes</label>
+                <textarea name="description" id="t_description" class="form-control" rows="2" placeholder="Reason for transaction"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" id="transactionSubmitBtn" style="flex: 1;">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('transactionModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openModal(id) {
+    document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+}
+
+function toggleTransactionFields() {
+    const type = document.getElementById('t_type').value;
+    const destGroup = document.getElementById('destAccGroup');
+    if (type === 'TRANSFER' || type === 'CARD_PAYMENT' || type === 'DEMAT_DEPOSIT' || type === 'DEMAT_WITHDRAWAL' || type === 'INCOME') {
+        destGroup.style.display = 'block';
+    } else {
+        destGroup.style.display = 'none';
+    }
+}
+
+function editTransaction(id, type, category, amount, date, sourceAccId, destAccId, recipient, description) {
+    document.getElementById('transactionModalTitle').innerText = 'Edit Transaction';
+    document.getElementById('transactionForm').action = `/transactions/${id}/edit/`;
+    document.getElementById('t_type').value = type;
+    document.getElementById('t_category').value = category;
+    document.getElementById('t_amount').value = amount;
+    document.getElementById('t_date').value = date;
+    document.getElementById('t_source_account').value = sourceAccId;
+    document.getElementById('t_destination_account').value = destAccId;
+    document.getElementById('t_recipient_name').value = recipient;
+    document.getElementById('t_description').value = description;
+    document.getElementById('transactionSubmitBtn').innerText = 'Save Changes';
+    toggleTransactionFields();
+    openModal('transactionModal');
+}
+</script>
 {% endblock %}

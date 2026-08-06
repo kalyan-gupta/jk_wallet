@@ -378,6 +378,8 @@ body {
   padding: 2rem;
   box-shadow: var(--shadow-lg);
   animation: modalSlide 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 @keyframes modalSlide {

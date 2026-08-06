@@ -16,4 +16,28 @@ urlpatterns = [
     path('accounts/<int:account_id>/edit/', views.edit_account, name='edit_account'),
     path('transactions/', views.transactions_list, name='transactions_list'),
     path('transactions/add/', views.add_transaction, name='add_transaction'),
+    path('transactions/<int:transaction_id>/edit/', views.edit_transaction, name='edit_transaction'),
+    path('transactions/<int:transaction_id>/delete/', views.delete_transaction, name='delete_transaction'),
+    
+    # Budgets
+    path('budgets/add-or-update/', views.add_or_update_budget, name='add_or_update_budget'),
+    path('budgets/<int:budget_id>/delete/', views.delete_budget, name='delete_budget'),
+    
+    # Debts
+    path('debts/add/', views.add_debt, name='add_debt'),
+    path('debts/<int:debt_id>/toggle-settle/', views.toggle_settle_debt, name='toggle_settle_debt'),
+    path('debts/<int:debt_id>/delete/', views.delete_debt, name='delete_debt'),
+    
+    # CSV Tools
+    path('transactions/export-csv/', views.export_transactions_csv, name='export_transactions_csv'),
+    path('transactions/import-csv/', views.import_transactions_csv, name='import_transactions_csv'),
+    
+    # Categories management
+    path('admin-panel/categories/add/', views.add_category, name='add_category'),
+    path('admin-panel/categories/<int:category_id>/edit/', views.edit_category, name='edit_category'),
+    path('admin-panel/categories/<int:category_id>/delete/', views.delete_category, name='delete_category'),
+    
+    # Analytics page
+    path('analytics/', views.analytics_view, name='analytics'),
 ]
+

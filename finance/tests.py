@@ -56,3 +56,60 @@ class CustomInAppAdminTestCase(TestCase):
         })
         self.assertEqual(resp_post.status_code, 200)
         self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    def test_edit_delete_transaction(self):
+        user = User.objects.create_user(username='regular', password='password123')
+        self.client.login(username='regular', password='password123')
+        
+        # Create an account
+        acc = Account.objects.create(
+            user=user,
+            name='My Bank',
+            account_type='BANK',
+            current_balance=Decimal('1000.00')
+        )
+
+        # Create a transaction
+        txn = Transaction.objects.create(
+            user=user,
+            transaction_type='EXPENSE',
+            category='FOOD',
+            amount=Decimal('100.00'),
+            source_account=acc,
+            date='2026-08-07'
+        )
+        # Apply the expense impact
+        acc.current_balance -= txn.amount
+        acc.save()
+
+        self.assertEqual(acc.current_balance, Decimal('900.00'))
+
+        # Edit the transaction
+        edit_resp = self.client.post(f'/transactions/{txn.id}/edit/', {
+            'transaction_type': 'EXPENSE',
+            'category': 'SHOPPING',
+            'amount': '150.00',
+            'date': '2026-08-07',
+            'source_account': acc.id,
+            'destination_account': '',
+            'recipient_name': 'Shop',
+            'description': 'Updated description'
+        })
+        self.assertEqual(edit_resp.status_code, 302)
+
+        # Verify edited txn and adjusted balance (1000 - 150 = 850)
+        acc.refresh_from_db()
+        txn.refresh_from_db()
+        self.assertEqual(acc.current_balance, Decimal('850.00'))
+        self.assertEqual(txn.amount, Decimal('150.00'))
+        self.assertEqual(txn.category, 'SHOPPING')
+
+        # Delete the transaction
+        del_resp = self.client.get(f'/transactions/{txn.id}/delete/')
+        self.assertEqual(del_resp.status_code, 302)
+
+        # Verify transaction deleted and balance restored to original 1000.00
+        self.assertFalse(Transaction.objects.filter(id=txn.id).exists())
+        acc.refresh_from_db()
+        self.assertEqual(acc.current_balance, Decimal('1000.00'))
+

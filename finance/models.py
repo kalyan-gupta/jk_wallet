@@ -3,6 +3,36 @@ from django.core.validators import MinValueValidator
 from django.contrib.auth.models import User
 from decimal import Decimal
 
+DEFAULT_CATEGORIES = [
+    ('FOOD', 'Food & Dining'),
+    ('SHOPPING', 'Shopping & Electronics'),
+    ('BILLS', 'Utilities & Bills'),
+    ('SALARY', 'Salary & Income'),
+    ('RENT', 'Rent & Housing'),
+    ('INVESTMENT', 'Investments & Mutual Funds'),
+    ('TRANSFER', 'Account Transfer'),
+    ('CARD_BILL', 'Credit Card Bill'),
+    ('ENTERTAINMENT', 'Entertainment & Subscriptions'),
+    ('OTHERS', 'Others / Misc'),
+]
+
+class TransactionCategory(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        verbose_name_plural = "Transaction Categories"
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def get_all_categories(cls):
+        if not cls.objects.exists():
+            for code, name in DEFAULT_CATEGORIES:
+                cls.objects.create(code=code, name=name)
+        return cls.objects.all()
+
 class Account(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='accounts')
 
@@ -100,6 +130,12 @@ class Transaction(models.Model):
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.amount} on {self.date}"
 
+    @property
+    def category_display(self):
+        cat = TransactionCategory.objects.filter(code=self.category).first()
+        return cat.name if cat else self.category
+
+
 
 class SystemSetting(models.Model):
     key = models.CharField(max_length=50, unique=True)
@@ -120,3 +156,42 @@ class SystemSetting(models.Model):
         setting.value = str(value)
         setting.save()
         return setting.value
+
+
+class Budget(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
+    category = models.CharField(max_length=30, choices=Transaction.CATEGORY_CHOICES)
+    amount_limit = models.DecimalField(max_digits=14, decimal_places=2)
+    month = models.IntegerField(help_text="Month number e.g. 8")
+    year = models.IntegerField(help_text="Year e.g. 2026")
+
+    class Meta:
+        unique_together = ('user', 'category', 'month', 'year')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.category} Budget: ₹{self.amount_limit} ({self.month}/{self.year})"
+
+
+class Debt(models.Model):
+    DEBT_TYPE_CHOICES = [
+        ('LENT', 'Lent to Someone'),
+        ('BORROWED', 'Borrowed from Someone'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='debts')
+    person_name = models.CharField(max_length=100)
+    debt_type = models.CharField(max_length=20, choices=DEBT_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    # Linked account where money goes out/comes in
+    account = models.ForeignKey(Account, on_delete=models.SET_NULL, null=True, blank=True, related_name='debts', help_text="Linked financial account")
+    date = models.DateField(help_text="Date when debt was incurred", null=True, blank=True)
+    description = models.TextField(blank=True, null=True, help_text="Notes about the debt")
+    is_settled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.debt_type} - {self.person_name}: ₹{self.amount} (Settled: {self.is_settled})"
+
