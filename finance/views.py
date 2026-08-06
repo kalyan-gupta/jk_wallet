@@ -197,6 +197,114 @@ def dashboard(request):
 
 
 @login_required
+def analytics_view(request):
+    # Get last 6 months (including current month)
+    today = datetime.date.today()
+    months = []
+    for i in range(5, -1, -1):
+        m = today.month - i
+        y = today.year
+        if m <= 0:
+            m += 12
+            y -= 1
+        months.append((y, m))
+
+    income_data = []
+    expense_data = []
+    month_labels = []
+    total_six_month_income = Decimal('0.00')
+    total_six_month_expense = Decimal('0.00')
+    
+    for y, m in months:
+        start_date = datetime.date(y, m, 1)
+        if m == 12:
+            end_date = datetime.date(y+1, 1, 1) - datetime.timedelta(days=1)
+        else:
+            end_date = datetime.date(y, m+1, 1) - datetime.timedelta(days=1)
+            
+        month_label = start_date.strftime('%b %Y')
+        month_labels.append(month_label)
+        
+        monthly_income = Transaction.objects.filter(
+            user=request.user,
+            transaction_type='INCOME',
+            date__gte=start_date,
+            date__lte=end_date
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        monthly_expense = Transaction.objects.filter(
+            user=request.user,
+            transaction_type__in=['EXPENSE', 'PAY_PEOPLE'],
+            date__gte=start_date,
+            date__lte=end_date
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        income_data.append(float(monthly_income))
+        expense_data.append(float(monthly_expense))
+        total_six_month_income += monthly_income
+        total_six_month_expense += monthly_expense
+
+    # Average monthly saving rate
+    average_saving_rate = 0
+    if total_six_month_income > 0:
+        savings = total_six_month_income - total_six_month_expense
+        average_saving_rate = int((savings / total_six_month_income) * 100)
+        if average_saving_rate < 0:
+            average_saving_rate = 0
+
+    # Expense by category over last 6 months
+    six_months_ago = datetime.date(months[0][0], months[0][1], 1)
+    expenses_by_cat = Transaction.objects.filter(
+        user=request.user,
+        transaction_type__in=['EXPENSE', 'PAY_PEOPLE'],
+        date__gte=six_months_ago
+    ).values('category').annotate(total=Sum('amount')).order_by('-total')
+    
+    db_categories = TransactionCategory.get_all_categories()
+    category_map = {cat.code: cat.name for cat in db_categories}
+    
+    cat_labels = []
+    cat_values = []
+    top_category = "None"
+    top_category_amount = Decimal('0.00')
+    
+    for ec in expenses_by_cat:
+        cat_name = category_map.get(ec['category'], ec['category'])
+        cat_labels.append(cat_name)
+        cat_values.append(float(ec['total']))
+        if ec['total'] > top_category_amount:
+            top_category_amount = ec['total']
+            top_category = cat_name
+
+    # Net worth calculation
+    accounts = Account.objects.filter(user=request.user, is_active=True)
+    net_worth = Decimal('0.00')
+    for acc in accounts:
+        if acc.account_type in ['BANK', 'CASH', 'WALLET', 'DEMAT']:
+            net_worth += acc.current_balance
+            if acc.account_type == 'DEMAT' and acc.invested_amount:
+                net_worth += acc.invested_amount
+        elif acc.account_type == 'CREDIT_CARD':
+            if acc.credit_limit:
+                net_worth -= max(Decimal('0.00'), acc.credit_limit - acc.current_balance)
+
+    context = {
+        'month_labels_json': json.dumps(month_labels),
+        'income_data_json': json.dumps(income_data),
+        'expense_data_json': json.dumps(expense_data),
+        'cat_labels_json': json.dumps(cat_labels),
+        'cat_values_json': json.dumps(cat_values),
+        'total_six_month_income': total_six_month_income,
+        'total_six_month_expense': total_six_month_expense,
+        'average_saving_rate': average_saving_rate,
+        'top_category': top_category,
+        'top_category_amount': top_category_amount,
+        'net_worth': net_worth,
+    }
+    return render(request, 'analytics.html', context)
+
+
+@login_required
 def admin_settings(request):
     if not request.user.is_staff and not request.user.is_superuser:
         messages.error(request, "Access denied. Admin privileges required.")

@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block title %}Financial Analytics - JK Wallet{% endblock %}
+{% block page_title %}Advanced Analytics{% endblock %}
+{% block page_subtitle %}In-depth visualization of cash flow, category spending & savings performance{% endblock %}
+
+{% block content %}
+<!-- Top Stats Row -->
+<div class="card-grid" style="margin-bottom: 2rem;">
+    <!-- Net Worth Card -->
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Net Worth</span>
+            <div class="stat-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+        </div>
+        <div class="stat-value">₹{{ net_worth|floatformat:2 }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Active financial asset value</div>
+    </div>
+
+    <!-- Savings Rate Card -->
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">6-Month Savings Rate</span>
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-success);">
+                <i class="fa-solid fa-piggy-bank"></i>
+            </div>
+        </div>
+        <div class="stat-value">{{ average_saving_rate }}%</div>
+        <div style="font-size: 0.8rem; color: var(--accent-success);">Average monthly savings margin</div>
+    </div>
+
+    <!-- Top Expense Category Card -->
+    <div class="stat-card">
+        <div class="stat-header">
+            <span class="stat-label">Top Expense Category</span>
+            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-danger);">
+                <i class="fa-solid fa-tags"></i>
+            </div>
+        </div>
+        <div class="stat-value" style="font-size: 1.45rem; line-height: 2.2rem;">{{ top_category }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Total spent: ₹{{ top_category_amount|floatformat:2 }}</div>
+    </div>
+</div>
+
+<!-- Visual Charts Layout -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Cash Flow Trend Chart -->
+    <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: var(--glass-blur); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-md);">
+        <h3 style="font-size: 1.1rem; margin-bottom: 1.25rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-primary);"></i> Monthly Cashflow (Last 6 Months)
+        </h3>
+        <div style="height: 320px; position: relative;">
+            <canvas id="cashflowChart"></canvas>
+            <div id="noCashflowData" style="display: none; position: absolute; inset: 0; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.9rem;">
+                No cashflow data available.
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Spending Chart -->
+    <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: var(--glass-blur); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-md);">
+        <h3 style="font-size: 1.1rem; margin-bottom: 1.25rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i> 6-Month Category Expenditure
+        </h3>
+        <div style="height: 320px; position: relative;">
+            <canvas id="categoryExpenditureChart"></canvas>
+            <div id="noCategoryData" style="display: none; position: absolute; inset: 0; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.9rem;">
+                No category expenditure recorded in the last 6 months.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Data Grid Summary -->
+<div style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-md); margin-bottom: 2rem;">
+    <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-primary);">
+        <i class="fa-solid fa-list-check" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> Historical Breakdown Summary
+    </h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; text-align: center;">
+        <div style="border-right: 1px solid var(--border-color); padding: 1rem;">
+            <div style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.25rem;">Total 6-Month Income</div>
+            <div style="font-size: 1.45rem; font-weight: 700; color: var(--accent-success);">₹{{ total_six_month_income|floatformat:2 }}</div>
+        </div>
+        <div style="border-right: 1px solid var(--border-color); padding: 1rem;">
+            <div style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.25rem;">Total 6-Month Outflow</div>
+            <div style="font-size: 1.45rem; font-weight: 700; color: var(--accent-danger);">₹{{ total_six_month_expense|floatformat:2 }}</div>
+        </div>
+        <div style="padding: 1rem;">
+            <div style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.25rem;">Net Savings Margin</div>
+            <div style="font-size: 1.45rem; font-weight: 700; color: var(--accent-primary);">
+                ₹{{ total_six_month_income|sub:total_six_month_expense|floatformat:2 }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% load mathfilters %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Cashflow Chart
+    const months = {{ month_labels_json|safe }};
+    const income = {{ income_data_json|safe }};
+    const expense = {{ expense_data_json|safe }};
+    
+    const hasCashflow = income.some(val => val > 0) || expense.some(val => val > 0);
+    if (!hasCashflow) {
+        document.getElementById('noCashflowData').style.display = 'flex';
+        document.getElementById('cashflowChart').style.display = 'none';
+    } else {
+        const ctxFlow = document.getElementById('cashflowChart').getContext('2d');
+        new Chart(ctxFlow, {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: income,
+                        backgroundColor: '#34d399',
+                        borderRadius: 6,
+                    },
+                    {
+                        label: 'Expense',
+                        data: expense,
+                        backgroundColor: '#f87171',
+                        borderRadius: 6,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: 'var(--text-primary)', font: { family: 'Outfit' } }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: { color: 'var(--text-secondary)' },
+                        grid: { color: 'var(--border-color)' }
+                    },
+                    x: {
+                        ticks: { color: 'var(--text-secondary)' },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Category Expenditure Chart
+    const catLabels = {{ cat_labels_json|safe }};
+    const catValues = {{ cat_values_json|safe }};
+    
+    if (catValues.length === 0) {
+        document.getElementById('noCategoryData').style.display = 'flex';
+        document.getElementById('categoryExpenditureChart').style.display = 'none';
+    } else {
+        const ctxCat = document.getElementById('categoryExpenditureChart').getContext('2d');
+        new Chart(ctxCat, {
+            type: 'polarArea',
+            data: {
+                labels: catLabels,
+                datasets: [{
+                    data: catValues,
+                    backgroundColor: [
+                        'rgba(99, 102, 241, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(192, 132, 252, 0.7)',
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(236, 72, 153, 0.7)',
+                        'rgba(20, 184, 166, 0.7)'
+                    ],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.15)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: 'var(--text-primary)', font: { family: 'Outfit' } }
+                    }
+                },
+                scales: {
+                    r: {
+                        grid: { color: 'var(--border-color)' },
+                        ticks: { backdropColor: 'transparent', color: 'var(--text-secondary)' }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -36,5 +36,8 @@ urlpatterns = [
     path('admin-panel/categories/add/', views.add_category, name='add_category'),
     path('admin-panel/categories/<int:category_id>/edit/', views.edit_category, name='edit_category'),
     path('admin-panel/categories/<int:category_id>/delete/', views.delete_category, name='delete_category'),
+    
+    # Analytics page
+    path('analytics/', views.analytics_view, name='analytics'),
 ]
 

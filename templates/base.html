@@ -37,6 +37,11 @@
                         <i class="fa-solid fa-receipt"></i> Transactions
                     </a>
                 </li>
+                <li>
+                    <a href="{% url 'analytics' %}" class="nav-link {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+                        <i class="fa-solid fa-chart-line"></i> Analytics
+                    </a>
+                </li>
                 {% if user.is_staff %}
                 <li>
                     <a href="{% url 'admin_settings' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_settings' %}active{% endif %}">
@@ -112,6 +117,9 @@
             </a>
             <a href="{% url 'transactions_list' %}" class="nav-link {% if request.resolver_match.url_name == 'transactions_list' %}active{% endif %}">
                 <i class="fa-solid fa-receipt"></i>
+            </a>
+            <a href="{% url 'analytics' %}" class="nav-link {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+                <i class="fa-solid fa-chart-line"></i>
             </a>
         </nav>
     </div>
