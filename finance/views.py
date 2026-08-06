@@ -620,6 +620,7 @@ def add_debt(request):
         amount = Decimal(request.POST.get('amount', '0.00'))
         description = request.POST.get('description', '')
         account_id = request.POST.get('account')
+        date_str = request.POST.get('date') or datetime.date.today().strftime('%Y-%m-%d')
         
         acc = Account.objects.filter(id=account_id, user=request.user).first() if account_id else None
         
@@ -628,9 +629,31 @@ def add_debt(request):
             if debt_type == 'LENT':
                 acc.current_balance -= amount
                 acc.save()
+                # Record transaction
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='PAY_PEOPLE',
+                    category='OTHERS',
+                    amount=amount,
+                    source_account=acc,
+                    recipient_name=person_name,
+                    description=f"Lent money: {description}".strip(),
+                    date=date_str
+                )
             elif debt_type == 'BORROWED':
                 acc.current_balance += amount
                 acc.save()
+                # Record transaction
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='INCOME',
+                    category='OTHERS',
+                    amount=amount,
+                    destination_account=acc,
+                    recipient_name=person_name,
+                    description=f"Borrowed money: {description}".strip(),
+                    date=date_str
+                )
 
         Debt.objects.create(
             user=request.user,
@@ -638,9 +661,10 @@ def add_debt(request):
             debt_type=debt_type,
             amount=amount,
             account=acc,
+            date=date_str,
             description=description
         )
-        messages.success(request, f"Recorded debt of ₹{amount:,.2f} associated with {person_name}!")
+        messages.success(request, f"Recorded debt of ₹{amount:,.2f} associated with {person_name} and logged transaction!")
         
     return redirect('dashboard')
 
@@ -657,20 +681,63 @@ def toggle_settle_debt(request, debt_id):
             # Settle means we receive the lent money back (+) or pay the borrowed money back (-)
             if debt.debt_type == 'LENT':
                 acc.current_balance += debt.amount
+                acc.save()
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='INCOME',
+                    category='OTHERS',
+                    amount=debt.amount,
+                    destination_account=acc,
+                    recipient_name=debt.person_name,
+                    description=f"Settled debt (Received back): {debt.description or ''}".strip(),
+                    date=datetime.date.today()
+                )
             elif debt.debt_type == 'BORROWED':
                 acc.current_balance -= debt.amount
+                acc.save()
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='PAY_PEOPLE',
+                    category='OTHERS',
+                    amount=debt.amount,
+                    source_account=acc,
+                    recipient_name=debt.person_name,
+                    description=f"Settled debt (Paid back): {debt.description or ''}".strip(),
+                    date=datetime.date.today()
+                )
         else:
             # Unsettling reverses the settlement
             if debt.debt_type == 'LENT':
                 acc.current_balance -= debt.amount
+                acc.save()
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='PAY_PEOPLE',
+                    category='OTHERS',
+                    amount=debt.amount,
+                    source_account=acc,
+                    recipient_name=debt.person_name,
+                    description=f"Reverted debt settlement (Lent again): {debt.description or ''}".strip(),
+                    date=datetime.date.today()
+                )
             elif debt.debt_type == 'BORROWED':
                 acc.current_balance += debt.amount
-        acc.save()
+                acc.save()
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='INCOME',
+                    category='OTHERS',
+                    amount=debt.amount,
+                    destination_account=acc,
+                    recipient_name=debt.person_name,
+                    description=f"Reverted debt settlement (Borrowed again): {debt.description or ''}".strip(),
+                    date=datetime.date.today()
+                )
         
     debt.save()
     
     status_str = "settled" if debt.is_settled else "unsettled"
-    messages.success(request, f"Debt for {debt.person_name} marked as {status_str}.")
+    messages.success(request, f"Debt for {debt.person_name} marked as {status_str} and logged transaction.")
     return redirect('dashboard')
 
 
