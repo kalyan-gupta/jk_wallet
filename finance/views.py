@@ -288,6 +288,7 @@ def analytics_view(request):
             if acc.credit_limit:
                 net_worth -= max(Decimal('0.00'), acc.credit_limit - acc.current_balance)
 
+    net_savings_margin = total_six_month_income - total_six_month_expense
     context = {
         'month_labels_json': json.dumps(month_labels),
         'income_data_json': json.dumps(income_data),
@@ -296,6 +297,7 @@ def analytics_view(request):
         'cat_values_json': json.dumps(cat_values),
         'total_six_month_income': total_six_month_income,
         'total_six_month_expense': total_six_month_expense,
+        'net_savings_margin': net_savings_margin,
         'average_saving_rate': average_saving_rate,
         'top_category': top_category,
         'top_category_amount': top_category_amount,
