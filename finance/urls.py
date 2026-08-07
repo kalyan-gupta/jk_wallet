@@ -1,5 +1,15 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from rest_framework.authtoken.views import obtain_auth_token
+from . import views, api_views
+
+router = DefaultRouter()
+router.register('accounts', api_views.AccountViewSet, basename='api_account')
+router.register('transactions', api_views.TransactionViewSet, basename='api_transaction')
+router.register('budgets', api_views.BudgetViewSet, basename='api_budget')
+router.register('debts', api_views.DebtViewSet, basename='api_debt')
+router.register('categories', api_views.TransactionCategoryViewSet, basename='api_category')
+
 
 urlpatterns = [
     path('healthz', views.health_check, name='health_check'),
@@ -39,5 +49,13 @@ urlpatterns = [
     
     # Analytics page
     path('analytics/', views.analytics_view, name='analytics'),
+
+    # API endpoints
+    path('api/v1/auth/login/', obtain_auth_token, name='api_token_auth'),
+    path('api/v1/analytics/', api_views.AnalyticsAPIView.as_view(), name='api_analytics'),
+    path('api/v1/admin/users/', api_views.AdminUsersListAPIView.as_view(), name='api_admin_users'),
+    path('api/v1/admin/toggle-registration/', api_views.AdminRegistrationToggleAPIView.as_view(), name='api_admin_toggle_registration'),
+    path('api/v1/admin/toggle-user/<int:user_id>/', api_views.AdminToggleUserStatusAPIView.as_view(), name='api_admin_toggle_user'),
+    path('api/v1/', include(router.urls)),
 ]
 
