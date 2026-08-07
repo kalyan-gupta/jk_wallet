@@ -113,3 +113,95 @@ class CustomInAppAdminTestCase(TestCase):
         acc.refresh_from_db()
         self.assertEqual(acc.current_balance, Decimal('1000.00'))
 
+
+from rest_framework.test import APITestCase
+from rest_framework.authtoken.models import Token
+
+class RestAPITestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='apiuser', password='password123')
+        self.token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+
+    def test_token_auth(self):
+        # Test obtaining token via credentials POST
+        self.client.credentials() # Clear credentials
+        resp = self.client.post('/api/v1/auth/login/', {
+            'username': 'apiuser',
+            'password': 'password123'
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('token', resp.data)
+
+    def test_accounts_api(self):
+        # Create account
+        resp = self.client.post('/api/v1/accounts/', {
+            'name': 'API Wallet',
+            'account_type': 'WALLET',
+            'current_balance': '500.00'
+        })
+        self.assertEqual(resp.status_code, 201)
+        account_id = resp.data['id']
+
+        # Verify created
+        acc = Account.objects.get(id=account_id)
+        self.assertEqual(acc.name, 'API Wallet')
+        self.assertEqual(acc.user, self.user)
+
+    def test_transaction_balance_logic_api(self):
+        acc = Account.objects.create(user=self.user, name='Bank Account', account_type='BANK', current_balance=Decimal('1000.00'))
+        
+        # Create expense transaction via API
+        resp = self.client.post('/api/v1/transactions/', {
+            'transaction_type': 'EXPENSE',
+            'category': 'FOOD',
+            'amount': '150.00',
+            'source_account': acc.id,
+            'date': '2026-08-08'
+        })
+        self.assertEqual(resp.status_code, 201)
+        
+        # Verify account balance mutated
+        acc.refresh_from_db()
+        self.assertEqual(acc.current_balance, Decimal('850.00'))
+
+        # Update transaction amount via API
+        txn_id = resp.data['id']
+        resp_update = self.client.put(f'/api/v1/transactions/{txn_id}/', {
+            'transaction_type': 'EXPENSE',
+            'category': 'FOOD',
+            'amount': '200.00',
+            'source_account': acc.id,
+            'date': '2026-08-08'
+        })
+        self.assertEqual(resp_update.status_code, 200)
+        acc.refresh_from_db()
+        self.assertEqual(acc.current_balance, Decimal('800.00'))
+
+        # Delete transaction via API
+        resp_delete = self.client.delete(f'/api/v1/transactions/{txn_id}/')
+        self.assertEqual(resp_delete.status_code, 204)
+        acc.refresh_from_db()
+        self.assertEqual(acc.current_balance, Decimal('1000.00'))
+
+    def test_analytics_api(self):
+        acc = Account.objects.create(user=self.user, name='Cash Account', account_type='CASH', current_balance=Decimal('500.00'))
+        resp = self.client.get('/api/v1/analytics/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['net_worth'], 500.0)
+
+    def test_admin_apis_permissions(self):
+        # Regular user should be rejected (403)
+        resp_users = self.client.get('/api/v1/admin/users/')
+        self.assertEqual(resp_users.status_code, 403)
+
+        # Promote user to admin
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save()
+
+        # Admin user should succeed (200)
+        resp_users_admin = self.client.get('/api/v1/admin/users/')
+        self.assertEqual(resp_users_admin.status_code, 200)
+
+
