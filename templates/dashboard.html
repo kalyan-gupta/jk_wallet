@@ -192,9 +192,15 @@
                     <span style="font-weight: 700; font-size: 0.95rem; color: {% if d.debt_type == 'LENT' %}var(--accent-success){% else %}var(--accent-danger){% endif %};">
                         ₹{{ d.amount|floatformat:0 }}
                     </span>
-                    <a href="{% url 'toggle_settle_debt' d.id %}" class="btn" style="padding: 2px 6px; font-size: 0.7rem; background: {% if d.is_settled %}var(--text-muted){% else %}var(--accent-primary){% endif %}; color: #fff;" title="Toggle settle state">
-                        {% if d.is_settled %}Unsettle{% else %}Settle{% endif %}
+                    {% if d.is_settled %}
+                    <a href="{% url 'toggle_settle_debt' d.id %}" class="btn" style="padding: 2px 6px; font-size: 0.7rem; background: var(--text-muted); color: #fff;" title="Toggle settle state">
+                        Unsettle
                     </a>
+                    {% else %}
+                    <button onclick="openSettleDebtModal('{{ d.id }}', '{{ d.debt_type }}')" class="btn" style="padding: 2px 6px; font-size: 0.7rem; background: var(--accent-primary); color: #fff;" title="Toggle settle state">
+                        Settle
+                    </button>
+                    {% endif %}
                     <a href="{% url 'delete_debt' d.id %}" style="color: var(--text-muted); font-size: 0.8rem; text-decoration: none;" title="Delete ledger">
                         <i class="fa-solid fa-trash-can"></i>
                     </a>
@@ -475,6 +481,27 @@
         </form>
     </div>
 </div>
+<!-- Modal: Settle Debt -->
+<div class="modal" id="settleDebtModal">
+    <div class="modal-content" style="max-width: 420px;">
+        <h3 style="margin-bottom: 1.25rem; font-size: 1.25rem;">Settle Debt</h3>
+        <form method="POST" action="" id="settleDebtForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label" id="settleAccountLabel">Select Account</label>
+                <select name="settle_account" id="settle_account" class="form-select" required>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} (Bal: ₹{{ acc.current_balance|floatformat:2 }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Confirm Settlement</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('settleDebtModal')">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -485,6 +512,17 @@ function openModal(id) {
 
 function closeModal(id) {
     document.getElementById(id).classList.remove('open');
+}
+
+function openSettleDebtModal(id, debtType) {
+    document.getElementById('settleDebtForm').action = `/debts/${id}/toggle-settle/`;
+    const label = document.getElementById('settleAccountLabel');
+    if (debtType === 'LENT') {
+        label.innerText = 'Select Destination Account (to receive returned funds)';
+    } else {
+        label.innerText = 'Select Source Account (to pay back the borrowing)';
+    }
+    openModal('settleDebtModal');
 }
 
 function toggleAccountFields() {

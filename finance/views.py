@@ -288,6 +288,7 @@ def analytics_view(request):
             if acc.credit_limit:
                 net_worth -= max(Decimal('0.00'), acc.credit_limit - acc.current_balance)
 
+    net_savings_margin = total_six_month_income - total_six_month_expense
     context = {
         'month_labels_json': json.dumps(month_labels),
         'income_data_json': json.dumps(income_data),
@@ -296,6 +297,7 @@ def analytics_view(request):
         'cat_values_json': json.dumps(cat_values),
         'total_six_month_income': total_six_month_income,
         'total_six_month_expense': total_six_month_expense,
+        'net_savings_margin': net_savings_margin,
         'average_saving_rate': average_saving_rate,
         'top_category': top_category,
         'top_category_amount': top_category_amount,
@@ -819,41 +821,12 @@ def add_debt(request):
 @login_required
 def toggle_settle_debt(request, debt_id):
     debt = get_object_or_404(Debt, id=debt_id, user=request.user)
-    debt.is_settled = not debt.is_settled
     
-    # Adjust linked account balance upon settling
-    acc = debt.account
-    if acc:
-        if debt.is_settled:
-            # Settle means we receive the lent money back (+) or pay the borrowed money back (-)
-            if debt.debt_type == 'LENT':
-                acc.current_balance += debt.amount
-                acc.save()
-                Transaction.objects.create(
-                    user=request.user,
-                    transaction_type='INCOME',
-                    category='OTHERS',
-                    amount=debt.amount,
-                    destination_account=acc,
-                    recipient_name=debt.person_name,
-                    description=f"Settled debt (Received back): {debt.description or ''}".strip(),
-                    date=datetime.date.today()
-                )
-            elif debt.debt_type == 'BORROWED':
-                acc.current_balance -= debt.amount
-                acc.save()
-                Transaction.objects.create(
-                    user=request.user,
-                    transaction_type='PAY_PEOPLE',
-                    category='OTHERS',
-                    amount=debt.amount,
-                    source_account=acc,
-                    recipient_name=debt.person_name,
-                    description=f"Settled debt (Paid back): {debt.description or ''}".strip(),
-                    date=datetime.date.today()
-                )
-        else:
-            # Unsettling reverses the settlement
+    if debt.is_settled:
+        # GET request to Unsettle
+        debt.is_settled = False
+        acc = debt.account
+        if acc:
             if debt.debt_type == 'LENT':
                 acc.current_balance -= debt.amount
                 acc.save()
@@ -880,11 +853,51 @@ def toggle_settle_debt(request, debt_id):
                     description=f"Reverted debt settlement (Borrowed again): {debt.description or ''}".strip(),
                     date=datetime.date.today()
                 )
-        
-    debt.save()
-    
-    status_str = "settled" if debt.is_settled else "unsettled"
-    messages.success(request, f"Debt for {debt.person_name} marked as {status_str} and logged transaction.")
+        debt.save()
+        messages.success(request, f"Debt with {debt.person_name} marked as unsettled.")
+    else:
+        # POST request to Settle
+        if request.method == 'POST':
+            settle_account_id = request.POST.get('settle_account')
+            acc = Account.objects.filter(id=settle_account_id, user=request.user).first()
+            if not acc:
+                messages.error(request, "Invalid account selected for settlement.")
+                return redirect('dashboard')
+            
+            debt.account = acc
+            debt.is_settled = True
+            
+            if debt.debt_type == 'LENT':
+                acc.current_balance += debt.amount
+                acc.save()
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='INCOME',
+                    category='OTHERS',
+                    amount=debt.amount,
+                    destination_account=acc,
+                    recipient_name=debt.person_name,
+                    description=f"Settled debt (Received back): {debt.description or ''}".strip(),
+                    date=datetime.date.today()
+                )
+            elif debt.debt_type == 'BORROWED':
+                acc.current_balance -= debt.amount
+                acc.save()
+                Transaction.objects.create(
+                    user=request.user,
+                    transaction_type='PAY_PEOPLE',
+                    category='OTHERS',
+                    amount=debt.amount,
+                    source_account=acc,
+                    recipient_name=debt.person_name,
+                    description=f"Settled debt (Paid back): {debt.description or ''}".strip(),
+                    date=datetime.date.today()
+                )
+            debt.save()
+            messages.success(request, f"Debt with {debt.person_name} settled successfully using {acc.name}.")
+        else:
+            messages.error(request, "POST request required to settle a debt.")
+            
     return redirect('dashboard')
 
 

@@ -90,7 +90,7 @@
         <div style="padding: 1rem;">
             <div style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.25rem;">Net Savings Margin</div>
             <div style="font-size: 1.45rem; font-weight: 700; color: var(--accent-primary);">
-                ₹{{ total_six_month_income|sub:total_six_month_expense|floatformat:2 }}
+                ₹{{ net_savings_margin|floatformat:2 }}
             </div>
         </div>
     </div>
@@ -98,7 +98,6 @@
 {% endblock %}
 
 {% block scripts %}
-{% load mathfilters %}
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     // 1. Cashflow Chart
