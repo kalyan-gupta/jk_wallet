@@ -19,6 +19,7 @@ urlpatterns = [
     path('register/', views.register_view, name='register'),
     path('logout/', views.logout_view, name='logout'),
     path('', views.dashboard, name='dashboard'),
+    path('profile/', views.profile_view, name='profile'),
     path('admin-panel/', views.admin_settings, name='admin_settings'),
     path('admin-panel/toggle-registration/', views.toggle_registration_setting, name='toggle_registration_setting'),
     path('admin-panel/toggle-user/<int:user_id>/', views.toggle_user_status, name='toggle_user_status'),

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}User Profile - JK Wallet{% endblock %}
+{% block page_title %}User Profile{% endblock %}
+{% block page_subtitle %}Manage your account details and update credentials{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 2rem auto; padding: 2.5rem; background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: var(--glass-blur); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);">
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="width: 64px; height: 64px; background: linear-gradient(135deg, var(--accent-primary), #c084fc); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 1.8rem; margin-bottom: 1rem; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);">
+            <i class="fa-solid fa-user-gear"></i>
+        </div>
+        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">Edit Profile Settings</h2>
+        <p style="font-size: 0.875rem; color: var(--text-secondary);">Keep your account information up to date</p>
+    </div>
+
+    <form method="POST" action="{% url 'profile' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" name="username" class="form-control" value="{{ user.username }}" placeholder="Choose a username" required>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" name="email" class="form-control" value="{{ user.email }}" placeholder="name@example.com">
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--glass-border); margin: 2rem 0;">
+        <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem;">Change Password <span style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);">(leave blank to keep current)</span></h3>
+
+        <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input type="password" name="password" class="form-control" placeholder="••••••••">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" name="confirm_password" class="form-control" placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;">
+            <i class="fa-solid fa-floppy-disk"></i> Save Profile Changes
+        </button>
+    </form>
+</div>
+{% endblock %}

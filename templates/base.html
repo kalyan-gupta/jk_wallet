@@ -42,6 +42,11 @@
                         <i class="fa-solid fa-chart-line"></i> Analytics
                     </a>
                 </li>
+                <li>
+                    <a href="{% url 'profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                        <i class="fa-solid fa-user-pen"></i> Profile
+                    </a>
+                </li>
                 {% if user.is_staff %}
                 <li>
                     <a href="{% url 'admin_settings' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_settings' %}active{% endif %}">

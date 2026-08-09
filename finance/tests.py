@@ -73,6 +73,30 @@ class CustomInAppAdminTestCase(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertFalse(User.objects.filter(id=target_user.id).exists())
 
+    def test_profile_ui(self):
+        user = User.objects.create_user(username='profileuser', password='password123', email='profile@example.com')
+        self.client.login(username='profileuser', password='password123')
+        
+        # Test rendering profile page
+        resp = self.client.get('/profile/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Edit Profile Settings")
+        
+        # Test saving profile changes
+        resp_post = self.client.post('/profile/', {
+            'username': 'profileuser_new',
+            'email': 'newprofile@example.com',
+            'password': 'newpassword123',
+            'confirm_password': 'newpassword123'
+        })
+        self.assertEqual(resp_post.status_code, 302)
+        
+        user.refresh_from_db()
+        self.assertEqual(user.username, 'profileuser_new')
+        self.assertEqual(user.email, 'newprofile@example.com')
+        self.assertTrue(user.check_password('newpassword123'))
+
+
 
     def test_edit_delete_transaction(self):
         user = User.objects.create_user(username='regular', password='password123')
@@ -241,6 +265,25 @@ class RestAPITestCase(APITestCase):
         resp = self.client.delete(f'/api/v1/admin/delete-user/{target_user.id}/')
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(User.objects.filter(id=target_user.id).exists())
+
+    def test_profile_api(self):
+        # GET /api/v1/auth/me/
+        resp = self.client.get('/api/v1/auth/me/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['username'], 'apiuser')
+        
+        # PUT /api/v1/auth/me/
+        resp_put = self.client.put('/api/v1/auth/me/', {
+            'username': 'apiuser_new',
+            'email': 'apiuser_new@example.com',
+            'password': 'newpassword123'
+        })
+        self.assertEqual(resp_put.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'apiuser_new')
+        self.assertEqual(self.user.email, 'apiuser_new@example.com')
+        self.assertTrue(self.user.check_password('newpassword123'))
+
 
 
 

@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout, authenticate, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Sum, Q, Count
@@ -1058,6 +1058,40 @@ def delete_category(request, category_id):
     category.delete()
     messages.success(request, f"Category '{name}' deleted successfully.")
     return redirect('admin_settings')
+
+
+@login_required
+def profile_view(request):
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+        confirm_password = request.POST.get('confirm_password', '')
+
+        if not username:
+            messages.error(request, "Username is required.")
+        else:
+            if username != request.user.username and User.objects.filter(username=username).exists():
+                messages.error(request, "Username already exists.")
+            else:
+                request.user.username = username
+                request.user.email = email
+                
+                if password:
+                    if password != confirm_password:
+                        messages.error(request, "Passwords do not match.")
+                        return render(request, 'profile.html')
+                    request.user.set_password(password)
+                    request.user.save()
+                    update_session_auth_hash(request, request.user)
+                else:
+                    request.user.save()
+                
+                messages.success(request, "Profile updated successfully.")
+                return redirect('profile')
+
+    return render(request, 'profile.html')
+
 
 
 
