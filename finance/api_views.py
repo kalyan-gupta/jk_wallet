@@ -494,3 +494,56 @@ class AdminToggleUserStatusAPIView(APIView):
             'is_staff': target_user.is_staff
         })
 
+
+class MeAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+
+
+class RegisterAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        reg_enabled = SystemSetting.get_setting('registration_enabled', 'true').lower() == 'true'
+        if not reg_enabled:
+            return Response({'error': 'Registration is currently disabled.'}, status=status.HTTP_403_FORBIDDEN)
+
+        username = request.data.get('username')
+        email = request.data.get('email', '')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response({'error': 'Username and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_user(username=username, email=email, password=password)
+
+        # Bootstrap admin if first user
+        if User.objects.count() == 1:
+            user.is_staff = True
+            user.is_superuser = True
+            user.save()
+
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+class AdminDeleteUserAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+
+    def delete(self, request, user_id):
+        target_user = get_object_or_404(User, id=user_id)
+        if target_user == request.user:
+            return Response({'error': 'You cannot delete yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        username = target_user.username
+        target_user.delete()
+        return Response({
+            'message': f"User '{username}' was successfully deleted."
+        }, status=status.HTTP_200_OK)
+
+

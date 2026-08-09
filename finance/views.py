@@ -372,6 +372,24 @@ def toggle_user_status(request, user_id):
 
 
 @login_required
+def delete_user(request, user_id):
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
+    
+    target_user = get_object_or_404(User, id=user_id)
+    if target_user == request.user:
+        messages.error(request, "You cannot delete yourself!")
+        return redirect('admin_settings')
+
+    username = target_user.username
+    target_user.delete()
+    messages.success(request, f"User '{username}' was successfully deleted.")
+    return redirect('admin_settings')
+
+
+
+@login_required
 def add_account(request):
     if request.method == 'POST':
         name = request.POST.get('name')

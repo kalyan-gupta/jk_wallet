@@ -106,9 +106,14 @@
                     <td>{{ u.transaction_count }}</td>
                     <td>
                         {% if u != request.user %}
-                            <a href="{% url 'toggle_user_status' u.id %}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;">
-                                {% if u.is_staff %}<i class="fa-solid fa-user-minus"></i> Revoke Admin{% else %}<i class="fa-solid fa-user-shield"></i> Make Admin{% endif %}
-                            </a>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <a href="{% url 'toggle_user_status' u.id %}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;">
+                                    {% if u.is_staff %}<i class="fa-solid fa-user-minus"></i> Revoke Admin{% else %}<i class="fa-solid fa-user-shield"></i> Make Admin{% endif %}
+                                </a>
+                                <a href="{% url 'delete_user' u.id %}" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; background-color: var(--accent-danger); border-color: var(--accent-danger);" onclick="return confirm('Are you sure you want to delete user {{ u.username }}? This will permanently delete all their accounts and transactions!')">
+                                    <i class="fa-solid fa-trash"></i> Delete User
+                                </a>
+                            </div>
                         {% else %}
                             <span style="font-size: 0.8rem; color: var(--text-muted);">-</span>
                         {% endif %}

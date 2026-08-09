@@ -22,6 +22,7 @@ urlpatterns = [
     path('admin-panel/', views.admin_settings, name='admin_settings'),
     path('admin-panel/toggle-registration/', views.toggle_registration_setting, name='toggle_registration_setting'),
     path('admin-panel/toggle-user/<int:user_id>/', views.toggle_user_status, name='toggle_user_status'),
+    path('admin-panel/delete-user/<int:user_id>/', views.delete_user, name='delete_user'),
     path('accounts/add/', views.add_account, name='add_account'),
     path('accounts/<int:account_id>/edit/', views.edit_account, name='edit_account'),
     path('transactions/', views.transactions_list, name='transactions_list'),
@@ -52,10 +53,13 @@ urlpatterns = [
 
     # API endpoints
     path('api/v1/auth/login/', obtain_auth_token, name='api_token_auth'),
+    path('api/v1/auth/register/', api_views.RegisterAPIView.as_view(), name='api_register'),
+    path('api/v1/auth/me/', api_views.MeAPIView.as_view(), name='api_me'),
     path('api/v1/analytics/', api_views.AnalyticsAPIView.as_view(), name='api_analytics'),
     path('api/v1/admin/users/', api_views.AdminUsersListAPIView.as_view(), name='api_admin_users'),
     path('api/v1/admin/toggle-registration/', api_views.AdminRegistrationToggleAPIView.as_view(), name='api_admin_toggle_registration'),
     path('api/v1/admin/toggle-user/<int:user_id>/', api_views.AdminToggleUserStatusAPIView.as_view(), name='api_admin_toggle_user'),
+    path('api/v1/admin/delete-user/<int:user_id>/', api_views.AdminDeleteUserAPIView.as_view(), name='api_admin_delete_user'),
     path('api/v1/', include(router.urls)),
 ]
 
