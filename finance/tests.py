@@ -57,6 +57,23 @@ class CustomInAppAdminTestCase(TestCase):
         self.assertEqual(resp_post.status_code, 200)
         self.assertFalse(User.objects.filter(username='newuser').exists())
 
+    def test_delete_user_ui(self):
+        admin_user = User.objects.create_user(username='admin', is_staff=True, is_superuser=True, password='password123')
+        target_user = User.objects.create_user(username='target', password='password123')
+        
+        self.client.login(username='admin', password='password123')
+        
+        # Test deleting self fails
+        resp = self.client.get(f'/admin-panel/delete-user/{admin_user.id}/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(User.objects.filter(id=admin_user.id).exists())
+        
+        # Test deleting target succeeds
+        resp = self.client.get(f'/admin-panel/delete-user/{target_user.id}/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(User.objects.filter(id=target_user.id).exists())
+
+
     def test_edit_delete_transaction(self):
         user = User.objects.create_user(username='regular', password='password123')
         self.client.login(username='regular', password='password123')
@@ -203,5 +220,27 @@ class RestAPITestCase(APITestCase):
         # Admin user should succeed (200)
         resp_users_admin = self.client.get('/api/v1/admin/users/')
         self.assertEqual(resp_users_admin.status_code, 200)
+
+    def test_delete_user_api(self):
+        target_user = User.objects.create_user(username='target_api', password='password123')
+        
+        # Regular user should be forbidden (403)
+        resp = self.client.delete(f'/api/v1/admin/delete-user/{target_user.id}/')
+        self.assertEqual(resp.status_code, 403)
+        
+        # Make user admin
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save()
+        
+        # Test deleting self via API fails
+        resp = self.client.delete(f'/api/v1/admin/delete-user/{self.user.id}/')
+        self.assertEqual(resp.status_code, 400)
+        
+        # Test deleting target via API succeeds
+        resp = self.client.delete(f'/api/v1/admin/delete-user/{target_user.id}/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.filter(id=target_user.id).exists())
+
 
 
