@@ -524,6 +524,45 @@ class MeAPIView(APIView):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
 
+    def put(self, request):
+        user = request.user
+        username = request.data.get('username', user.username)
+        email = request.data.get('email', user.email)
+        password = request.data.get('password')
+
+        if username != user.username:
+            if User.objects.filter(username=username).exists():
+                return Response({'error': 'Username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.username = username
+
+        user.email = email
+        if password:
+            user.set_password(password)
+        user.save()
+
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        user = request.user
+        username = request.data.get('username', user.username)
+        email = request.data.get('email', user.email)
+        password = request.data.get('password')
+
+        if username != user.username:
+            if User.objects.filter(username=username).exists():
+                return Response({'error': 'Username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.username = username
+
+        user.email = email
+        if password:
+            user.set_password(password)
+        user.save()
+
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+
 
 class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
