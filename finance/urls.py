@@ -60,6 +60,7 @@ urlpatterns = [
     path('api/v1/admin/toggle-registration/', api_views.AdminRegistrationToggleAPIView.as_view(), name='api_admin_toggle_registration'),
     path('api/v1/admin/toggle-user/<int:user_id>/', api_views.AdminToggleUserStatusAPIView.as_view(), name='api_admin_toggle_user'),
     path('api/v1/admin/delete-user/<int:user_id>/', api_views.AdminDeleteUserAPIView.as_view(), name='api_admin_delete_user'),
+    path('api/v1/auth/registration-status/', api_views.PublicRegistrationStatusAPIView.as_view(), name='api_public_registration_status'),
     path('api/v1/', include(router.urls)),
 ]
 

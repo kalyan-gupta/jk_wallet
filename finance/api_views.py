@@ -452,6 +452,16 @@ class AdminRegistrationToggleAPIView(APIView):
         })
 
 
+class PublicRegistrationStatusAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        current_val = SystemSetting.get_setting('registration_enabled', 'true').lower() == 'true'
+        return Response({
+            'registration_enabled': current_val
+        })
+
+
 class AdminUsersListAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminUser]
 
@@ -493,6 +503,18 @@ class AdminToggleUserStatusAPIView(APIView):
             'username': target_user.username,
             'is_staff': target_user.is_staff
         })
+
+
+class AdminDeleteUserAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+
+    def delete(self, request, user_id):
+        target_user = get_object_or_404(User, id=user_id)
+        if target_user == request.user:
+            return Response({'error': 'You cannot delete yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MeAPIView(APIView):
