@@ -26,6 +26,7 @@ urlpatterns = [
     path('admin-panel/delete-user/<int:user_id>/', views.delete_user, name='delete_user'),
     path('accounts/add/', views.add_account, name='add_account'),
     path('accounts/<int:account_id>/edit/', views.edit_account, name='edit_account'),
+    path('accounts/<int:account_id>/delete/', views.delete_account, name='delete_account'),
     path('transactions/', views.transactions_list, name='transactions_list'),
     path('transactions/add/', views.add_transaction, name='add_transaction'),
     path('transactions/<int:transaction_id>/edit/', views.edit_transaction, name='edit_transaction'),

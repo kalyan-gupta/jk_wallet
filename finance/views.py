@@ -1093,5 +1093,15 @@ def profile_view(request):
     return render(request, 'profile.html')
 
 
+@login_required
+def delete_account(request, account_id):
+    account = get_object_or_404(Account, id=account_id, user=request.user)
+    name = account.name
+    account.delete()
+    messages.success(request, f"Account '{name}' deleted successfully.")
+    return redirect('dashboard')
+
+
+
 
 

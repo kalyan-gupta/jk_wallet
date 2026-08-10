@@ -96,6 +96,22 @@ class CustomInAppAdminTestCase(TestCase):
         self.assertEqual(user.email, 'newprofile@example.com')
         self.assertTrue(user.check_password('newpassword123'))
 
+    def test_delete_account_ui(self):
+        user = User.objects.create_user(username='accuser', password='password123')
+        self.client.login(username='accuser', password='password123')
+        
+        acc = Account.objects.create(
+            user=user,
+            name='Delete Me Bank',
+            account_type='BANK',
+            current_balance=Decimal('500.00')
+        )
+        
+        resp = self.client.get(f'/accounts/{acc.id}/delete/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Account.objects.filter(id=acc.id).exists())
+
+
 
 
     def test_edit_delete_transaction(self):
