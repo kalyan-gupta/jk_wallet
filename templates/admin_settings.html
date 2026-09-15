@@ -222,6 +222,50 @@
         </div>
     </div>
 </div>
+
+<!-- System Audit Trail Table -->
+<div style="margin-bottom: 2.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <h2 style="font-size: 1.25rem; margin: 0; color: var(--text-primary);">
+            <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-warning); margin-right: 0.5rem;"></i> Historical Audit Log & Activity Trail
+        </h2>
+        <a href="/admin/" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; text-decoration: none;">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Full Django Admin History
+        </a>
+    </div>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Object / Model</th>
+                    <th>Action</th>
+                    <th>Details / Record Summary</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in audit_logs %}
+                <tr>
+                    <td style="font-size: 0.85rem; color: var(--text-muted);">{{ log.date|date:"Y-m-d H:i:s" }}</td>
+                    <td><strong>{{ log.user }}</strong></td>
+                    <td><span class="account-badge" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">{{ log.model }}</span></td>
+                    <td>
+                        <span class="account-badge" style="background: {% if log.action_type == '+' %}rgba(16, 185, 129, 0.15); color: var(--accent-success);{% elif log.action_type == '~' %}rgba(245, 158, 11, 0.15); color: var(--accent-warning);{% else %}rgba(239, 68, 68, 0.15); color: var(--accent-danger);{% endif %}">
+                            {{ log.action }}
+                        </span>
+                    </td>
+                    <td style="font-size: 0.85rem;">{{ log.details }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No audit logs recorded yet. Changes will be automatically tracked here!</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
