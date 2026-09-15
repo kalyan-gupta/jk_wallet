@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from django.contrib.auth.models import User
 from decimal import Decimal
+from simple_history.models import HistoricalRecords
 
 DEFAULT_CATEGORIES = [
     ('FOOD', 'Food & Dining'),
@@ -19,6 +20,7 @@ DEFAULT_CATEGORIES = [
 class TransactionCategory(models.Model):
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name_plural = "Transaction Categories"
@@ -64,6 +66,7 @@ class Account(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ['account_type', 'name']
@@ -127,6 +130,7 @@ class Transaction(models.Model):
     date = models.DateField(help_text="Transaction date")
     
     created_at = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ['-date', '-created_at']
@@ -164,10 +168,11 @@ class SystemSetting(models.Model):
 
 class Budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
-    category = models.CharField(max_length=30, choices=Transaction.CATEGORY_CHOICES)
+    category = models.CharField(max_length=50)
     amount_limit = models.DecimalField(max_digits=14, decimal_places=2)
     month = models.IntegerField(help_text="Month number e.g. 8")
     year = models.IntegerField(help_text="Year e.g. 2026")
+    history = HistoricalRecords()
 
     class Meta:
         unique_together = ('user', 'category', 'month', 'year')
@@ -192,6 +197,7 @@ class Debt(models.Model):
     is_settled = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ['-created_at']

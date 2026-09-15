@@ -323,6 +323,34 @@ def admin_settings(request):
     registration_enabled = SystemSetting.get_setting('registration_enabled', 'true').lower() == 'true'
 
     categories = TransactionCategory.get_all_categories()
+
+    # Recent Audit Activity Logs
+    recent_tx_history = Transaction.history.select_related('history_user')[:20]
+    audit_logs = []
+    for h in recent_tx_history:
+        action_name = "Created" if h.history_type == '+' else ("Updated" if h.history_type == '~' else "Deleted")
+        audit_logs.append({
+            'date': h.history_date,
+            'user': h.history_user.username if h.history_user else 'System',
+            'model': 'Transaction',
+            'action': action_name,
+            'action_type': h.history_type,
+            'details': f"₹{h.amount:,.2f} ({h.get_transaction_type_display()}) - {h.category_display}"
+        })
+
+    recent_acc_history = Account.history.select_related('history_user')[:10]
+    for h in recent_acc_history:
+        action_name = "Created" if h.history_type == '+' else ("Updated" if h.history_type == '~' else "Deleted")
+        audit_logs.append({
+            'date': h.history_date,
+            'user': h.history_user.username if h.history_user else 'System',
+            'model': 'Account',
+            'action': action_name,
+            'action_type': h.history_type,
+            'details': f"{h.name} ({h.get_account_type_display()}) - Bal: ₹{h.current_balance:,.2f}"
+        })
+    audit_logs = sorted(audit_logs, key=lambda x: x['date'], reverse=True)[:25]
+
     context = {
         'users_list': users,
         'total_users': users.count(),
@@ -332,6 +360,7 @@ def admin_settings(request):
         'all_transactions': all_transactions[:20],
         'registration_enabled': registration_enabled,
         'categories': categories,
+        'audit_logs': audit_logs,
     }
     return render(request, 'admin_settings.html', context)
 
