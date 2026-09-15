@@ -65,6 +65,28 @@ def apply_transaction_balance(transaction):
         if destination_acc:
             destination_acc.current_balance += amount
             destination_acc.save()
+    elif t_type == 'BUY_PORTFOLIO':
+        if source_acc and source_acc.account_type == 'DEMAT':
+            source_acc.current_balance -= amount
+            source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) + amount
+            source_acc.save()
+    elif t_type == 'SELL_PORTFOLIO':
+        if source_acc and source_acc.account_type == 'DEMAT':
+            source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) - amount
+            source_acc.current_balance += amount
+            source_acc.save()
+    elif t_type == 'DIRECT_INVEST':
+        if source_acc:
+            source_acc.current_balance -= amount
+            source_acc.save()
+        if destination_acc and destination_acc.account_type == 'DEMAT':
+            destination_acc.invested_amount = (destination_acc.invested_amount or Decimal('0.00')) + amount
+            destination_acc.save()
+    elif t_type == 'PORTFOLIO_VALUATION':
+        if source_acc and source_acc.account_type == 'DEMAT':
+            # Check description for loss indicator if called via API
+            source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) + amount
+            source_acc.save()
 
 def revert_transaction_balance(transaction):
     t_type = transaction.transaction_type
@@ -116,6 +138,30 @@ def revert_transaction_balance(transaction):
         if destination_acc:
             destination_acc.current_balance -= amount
             destination_acc.save()
+    elif t_type == 'BUY_PORTFOLIO':
+        if source_acc and source_acc.account_type == 'DEMAT':
+            source_acc.current_balance += amount
+            source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) - amount
+            source_acc.save()
+    elif t_type == 'SELL_PORTFOLIO':
+        if source_acc and source_acc.account_type == 'DEMAT':
+            source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) + amount
+            source_acc.current_balance -= amount
+            source_acc.save()
+    elif t_type == 'DIRECT_INVEST':
+        if source_acc:
+            source_acc.current_balance += amount
+            source_acc.save()
+        if destination_acc and destination_acc.account_type == 'DEMAT':
+            destination_acc.invested_amount = (destination_acc.invested_amount or Decimal('0.00')) - amount
+            destination_acc.save()
+    elif t_type == 'PORTFOLIO_VALUATION':
+        if source_acc and source_acc.account_type == 'DEMAT':
+            if 'loss' in (transaction.description or '').lower() or 'depreciation' in (transaction.description or '').lower():
+                source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) + amount
+            else:
+                source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) - amount
+            source_acc.save()
 
 
 class IsAdminOrReadOnly(permissions.BasePermission):

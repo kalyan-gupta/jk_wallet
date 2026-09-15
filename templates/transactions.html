@@ -96,7 +96,7 @@
             <tr>
                 <td>{{ t.date }}</td>
                 <td>
-                    <span class="account-badge" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">
+                    <span class="account-badge" style="background: {% if t.transaction_type == 'PORTFOLIO_VALUATION' %}rgba(192, 132, 252, 0.18); color: #c084fc;{% elif t.transaction_type == 'BUY_PORTFOLIO' or t.transaction_type == 'DIRECT_INVEST' %}rgba(16, 185, 129, 0.15); color: var(--accent-success);{% else %}rgba(99, 102, 241, 0.15); color: var(--accent-primary);{% endif %}">
                         {{ t.get_transaction_type_display }}
                     </span>
                 </td>
@@ -107,15 +107,15 @@
                     {% if t.recipient_name %}<strong>{{ t.recipient_name }}</strong><br>{% endif %}
                     <small style="color: var(--text-muted);">{{ t.description|default:"No description" }}</small>
                 </td>
-                <td style="font-weight: 700; color: {% if t.transaction_type == 'EXPENSE' or t.transaction_type == 'PAY_PEOPLE' %}var(--accent-danger){% elif t.transaction_type == 'INCOME' %}var(--accent-success){% else %}var(--text-primary){% endif %};">
-                    {% if t.transaction_type == 'EXPENSE' or t.transaction_type == 'PAY_PEOPLE' %}-{% elif t.transaction_type == 'INCOME' %}+{% endif %}₹{{ t.amount|floatformat:2 }}
+                <td style="font-weight: 700; color: {% if t.transaction_type == 'PORTFOLIO_VALUATION' %}{% if 'loss' in t.description|lower or 'depreciation' in t.description|lower %}var(--accent-danger){% else %}var(--accent-success){% endif %}{% elif t.transaction_type == 'EXPENSE' or t.transaction_type == 'PAY_PEOPLE' %}var(--accent-danger){% elif t.transaction_type == 'INCOME' %}var(--accent-success){% else %}var(--text-primary){% endif %};">
+                    {% if t.transaction_type == 'PORTFOLIO_VALUATION' %}{% if 'loss' in t.description|lower or 'depreciation' in t.description|lower %}-{% else %}+{% endif %}{% elif t.transaction_type == 'EXPENSE' or t.transaction_type == 'PAY_PEOPLE' %}-{% elif t.transaction_type == 'INCOME' %}+{% endif %}₹{{ t.amount|floatformat:2 }}
                 </td>
                 <td>
                     <div style="display: flex; gap: 0.5rem;">
                         <button onclick="editTransaction('{{ t.id }}', '{{ t.transaction_type }}', '{{ t.category }}', '{{ t.amount }}', '{{ t.date|date:'Y-m-d' }}', '{{ t.source_account.id|default:'' }}', '{{ t.destination_account.id|default:'' }}', '{{ t.recipient_name|default:'' }}', '{{ t.description|default:'' }}')" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer;" title="Edit">
                             <i class="fa-solid fa-pen-to-square"></i>
                         </button>
-                        <a href="{% url 'delete_transaction' t.id %}" onclick="return confirm('Are you sure you want to delete this transaction? This will revert balance updates.')" style="color: var(--accent-danger); text-decoration: none;" title="Delete">
+                        <a href="{% url 'delete_transaction' t.id %}" onclick="return confirm('Are you sure you want to delete this transaction? Balance adjustments will be reverted.')" style="color: var(--accent-danger); text-decoration: none;" title="Delete">
                             <i class="fa-solid fa-trash"></i>
                         </a>
                     </div>
@@ -123,9 +123,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 3rem;">
-                    No transactions recorded yet. Return to Dashboard to add your first transaction!
-                </td>
+                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">No transactions found.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -146,9 +144,27 @@
                     <option value="TRANSFER">Internal Account Transfer</option>
                     <option value="PAY_PEOPLE">Paid to External Person / Bank</option>
                     <option value="CARD_PAYMENT">Credit Card Bill Payment</option>
-                    <option value="DEMAT_DEPOSIT">Deposit into Demat Account</option>
+                    <option value="DEMAT_DEPOSIT">Deposit into Demat Account (Cash)</option>
                     <option value="DEMAT_WITHDRAWAL">Withdrawal from Demat Account</option>
+                    <option value="BUY_PORTFOLIO">Buy Portfolio (Demat Cash &rarr; Invested Holdings)</option>
+                    <option value="SELL_PORTFOLIO">Liquidate Portfolio (Holdings &rarr; Demat Cash)</option>
+                    <option value="DIRECT_INVEST">Direct Investment (Bank &rarr; Demat Portfolio)</option>
+                    <option value="PORTFOLIO_VALUATION">Portfolio Valuation Adjustment (Appreciation/Depreciation)</option>
                 </select>
+            </div>
+
+            <div class="form-group" id="valuationTypeGroup" style="display: none; background: rgba(192, 132, 252, 0.08); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid rgba(192, 132, 252, 0.2);">
+                <label class="form-label" style="color: #c084fc;">Valuation Adjustment Result</label>
+                <div style="display: flex; gap: 1.5rem; margin-top: 0.25rem;">
+                    <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                        <input type="radio" name="valuation_type" value="GAIN" id="val_gain" checked>
+                        <span style="color: var(--accent-success); font-weight: 600;">+ Profit / Appreciation</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                        <input type="radio" name="valuation_type" value="LOSS" id="val_loss">
+                        <span style="color: var(--accent-danger); font-weight: 600;">- Loss / Depreciation</span>
+                    </label>
+                </div>
             </div>
 
             <div class="form-group">
@@ -161,7 +177,7 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Amount (₹)</label>
+                <label class="form-label" id="amountLabel">Amount (₹)</label>
                 <input type="number" step="0.01" name="amount" id="t_amount" class="form-control" required placeholder="0.00">
             </div>
 
@@ -175,7 +191,7 @@
                 <select name="source_account" id="t_source_account" class="form-select">
                     <option value="">-- Select Source Account --</option>
                     {% for acc in accounts %}
-                    <option value="{{ acc.id }}">{{ acc.name }} (Bal: ₹{{ acc.current_balance|floatformat:2 }})</option>
+                    <option value="{{ acc.id }}">{{ acc.name }} (Bal: ₹{{ acc.current_balance|floatformat:2 }}{% if acc.account_type == 'DEMAT' %}, Inv: ₹{{ acc.invested_amount|floatformat:2 }}{% endif %})</option>
                     {% endfor %}
                 </select>
             </div>
@@ -222,10 +238,44 @@ function closeModal(id) {
 function toggleTransactionFields() {
     const type = document.getElementById('t_type').value;
     const destGroup = document.getElementById('destAccGroup');
-    if (type === 'TRANSFER' || type === 'CARD_PAYMENT' || type === 'DEMAT_DEPOSIT' || type === 'DEMAT_WITHDRAWAL' || type === 'INCOME') {
+    const sourceLabel = document.getElementById('sourceAccLabel');
+    const destLabel = document.getElementById('destAccLabel');
+    const amountLabel = document.getElementById('amountLabel');
+    const valGroup = document.getElementById('valuationTypeGroup');
+    const catSelect = document.getElementById('t_category');
+
+    sourceLabel.innerText = 'Source Account / Wallet';
+    destLabel.innerText = 'Destination Account';
+    amountLabel.innerText = 'Amount (₹)';
+    valGroup.style.display = 'none';
+
+    if (type === 'TRANSFER' || type === 'CARD_PAYMENT' || type === 'DEMAT_DEPOSIT' || type === 'DEMAT_WITHDRAWAL' || type === 'INCOME' || type === 'DIRECT_INVEST') {
         destGroup.style.display = 'block';
     } else {
         destGroup.style.display = 'none';
+    }
+
+    if (type === 'BUY_PORTFOLIO') {
+        sourceLabel.innerText = 'Demat Account (Cash Source)';
+        amountLabel.innerText = 'Purchase / Investment Amount (₹)';
+        destGroup.style.display = 'none';
+        catSelect.value = 'INVESTMENT';
+    } else if (type === 'SELL_PORTFOLIO') {
+        sourceLabel.innerText = 'Demat Account (Holdings Source)';
+        amountLabel.innerText = 'Holdings Liquidated / Sold (₹)';
+        destGroup.style.display = 'none';
+        catSelect.value = 'INVESTMENT';
+    } else if (type === 'DIRECT_INVEST') {
+        sourceLabel.innerText = 'Bank / Funding Source';
+        destLabel.innerText = 'Demat Account (Portfolio Destination)';
+        amountLabel.innerText = 'Investment Amount (₹)';
+        catSelect.value = 'INVESTMENT';
+    } else if (type === 'PORTFOLIO_VALUATION') {
+        sourceLabel.innerText = 'Demat Account';
+        destGroup.style.display = 'none';
+        amountLabel.innerText = 'Adjustment Difference (₹)';
+        valGroup.style.display = 'block';
+        catSelect.value = 'INVESTMENT';
     }
 }
 
@@ -240,6 +290,15 @@ function editTransaction(id, type, category, amount, date, sourceAccId, destAccI
     document.getElementById('t_destination_account').value = destAccId;
     document.getElementById('t_recipient_name').value = recipient;
     document.getElementById('t_description').value = description;
+    
+    if (type === 'PORTFOLIO_VALUATION') {
+        if ((description || '').toLowerCase().includes('loss') || (description || '').toLowerCase().includes('depreciation')) {
+            document.getElementById('val_loss').checked = true;
+        } else {
+            document.getElementById('val_gain').checked = true;
+        }
+    }
+
     document.getElementById('transactionSubmitBtn').innerText = 'Save Changes';
     toggleTransactionFields();
     openModal('transactionModal');
