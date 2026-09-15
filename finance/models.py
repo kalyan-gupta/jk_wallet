@@ -96,6 +96,10 @@ class Transaction(models.Model):
         ('CARD_PAYMENT', 'Credit Card Bill Payment'),
         ('DEMAT_DEPOSIT', 'Investment into Demat'),
         ('DEMAT_WITHDRAWAL', 'Withdrawal from Demat'),
+        ('BUY_PORTFOLIO', 'Buy Portfolio / Invest Cash in Demat'),
+        ('SELL_PORTFOLIO', 'Liquidate Portfolio to Demat Cash'),
+        ('DIRECT_INVEST', 'Direct Investment from Bank to Demat Portfolio'),
+        ('PORTFOLIO_VALUATION', 'Portfolio Valuation Adjustment'),
     ]
 
     CATEGORY_CHOICES = [

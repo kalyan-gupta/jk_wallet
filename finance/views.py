@@ -510,6 +510,31 @@ def add_transaction(request):
             if dest_acc:
                 dest_acc.current_balance += amount
                 dest_acc.save()
+        elif t_type == 'BUY_PORTFOLIO':
+            if source_acc and source_acc.account_type == 'DEMAT':
+                source_acc.current_balance -= amount
+                source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) + amount
+                source_acc.save()
+        elif t_type == 'SELL_PORTFOLIO':
+            if source_acc and source_acc.account_type == 'DEMAT':
+                source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) - amount
+                source_acc.current_balance += amount
+                source_acc.save()
+        elif t_type == 'DIRECT_INVEST':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+            if dest_acc and dest_acc.account_type == 'DEMAT':
+                dest_acc.invested_amount = (dest_acc.invested_amount or Decimal('0.00')) + amount
+                dest_acc.save()
+        elif t_type == 'PORTFOLIO_VALUATION':
+            valuation_type = request.POST.get('valuation_type', 'GAIN')
+            if source_acc and source_acc.account_type == 'DEMAT':
+                if valuation_type == 'LOSS':
+                    source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) - amount
+                else:
+                    source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) + amount
+                source_acc.save()
 
         Transaction.objects.create(
             user=request.user,
@@ -621,6 +646,30 @@ def edit_transaction(request, transaction_id):
             if old_dest:
                 old_dest.current_balance -= old_amount
                 old_dest.save()
+        elif old_type == 'BUY_PORTFOLIO':
+            if old_src and old_src.account_type == 'DEMAT':
+                old_src.current_balance += old_amount
+                old_src.invested_amount = (old_src.invested_amount or Decimal('0.00')) - old_amount
+                old_src.save()
+        elif old_type == 'SELL_PORTFOLIO':
+            if old_src and old_src.account_type == 'DEMAT':
+                old_src.invested_amount = (old_src.invested_amount or Decimal('0.00')) + old_amount
+                old_src.current_balance -= old_amount
+                old_src.save()
+        elif old_type == 'DIRECT_INVEST':
+            if old_src:
+                old_src.current_balance += old_amount
+                old_src.save()
+            if old_dest and old_dest.account_type == 'DEMAT':
+                old_dest.invested_amount = (old_dest.invested_amount or Decimal('0.00')) - old_amount
+                old_dest.save()
+        elif old_type == 'PORTFOLIO_VALUATION':
+            if old_src and old_src.account_type == 'DEMAT':
+                if 'loss' in (transaction.description or '').lower() or 'depreciation' in (transaction.description or '').lower():
+                    old_src.invested_amount = (old_src.invested_amount or Decimal('0.00')) + old_amount
+                else:
+                    old_src.invested_amount = (old_src.invested_amount or Decimal('0.00')) - old_amount
+                old_src.save()
 
         # Fetch new post data
         t_type = request.POST.get('transaction_type')
@@ -676,6 +725,31 @@ def edit_transaction(request, transaction_id):
             if dest_acc:
                 dest_acc.current_balance += amount
                 dest_acc.save()
+        elif t_type == 'BUY_PORTFOLIO':
+            if source_acc and source_acc.account_type == 'DEMAT':
+                source_acc.current_balance -= amount
+                source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) + amount
+                source_acc.save()
+        elif t_type == 'SELL_PORTFOLIO':
+            if source_acc and source_acc.account_type == 'DEMAT':
+                source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) - amount
+                source_acc.current_balance += amount
+                source_acc.save()
+        elif t_type == 'DIRECT_INVEST':
+            if source_acc:
+                source_acc.current_balance -= amount
+                source_acc.save()
+            if dest_acc and dest_acc.account_type == 'DEMAT':
+                dest_acc.invested_amount = (dest_acc.invested_amount or Decimal('0.00')) + amount
+                dest_acc.save()
+        elif t_type == 'PORTFOLIO_VALUATION':
+            valuation_type = request.POST.get('valuation_type', 'GAIN')
+            if source_acc and source_acc.account_type == 'DEMAT':
+                if valuation_type == 'LOSS':
+                    source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) - amount
+                else:
+                    source_acc.invested_amount = (source_acc.invested_amount or Decimal('0.00')) + amount
+                source_acc.save()
 
         # Update and save the transaction object
         transaction.transaction_type = t_type
@@ -743,6 +817,30 @@ def delete_transaction(request, transaction_id):
         if dest:
             dest.current_balance -= amount
             dest.save()
+    elif t_type == 'BUY_PORTFOLIO':
+        if src and src.account_type == 'DEMAT':
+            src.current_balance += amount
+            src.invested_amount = (src.invested_amount or Decimal('0.00')) - amount
+            src.save()
+    elif t_type == 'SELL_PORTFOLIO':
+        if src and src.account_type == 'DEMAT':
+            src.invested_amount = (src.invested_amount or Decimal('0.00')) + amount
+            src.current_balance -= amount
+            src.save()
+    elif t_type == 'DIRECT_INVEST':
+        if src:
+            src.current_balance += amount
+            src.save()
+        if dest and dest.account_type == 'DEMAT':
+            dest.invested_amount = (dest.invested_amount or Decimal('0.00')) - amount
+            dest.save()
+    elif t_type == 'PORTFOLIO_VALUATION':
+        if src and src.account_type == 'DEMAT':
+            if 'loss' in (transaction.description or '').lower() or 'depreciation' in (transaction.description or '').lower():
+                src.invested_amount = (src.invested_amount or Decimal('0.00')) + amount
+            else:
+                src.invested_amount = (src.invested_amount or Decimal('0.00')) - amount
+            src.save()
 
     transaction.delete()
     messages.success(request, "Transaction deleted successfully!")
