@@ -29,13 +29,15 @@ class AccountSerializer(serializers.ModelSerializer):
 
 class TransactionSerializer(serializers.ModelSerializer):
     category_display = serializers.ReadOnlyField()
+    transaction_type_display = serializers.CharField(source='get_transaction_type_display', read_only=True)
 
     class Meta:
         model = Transaction
         fields = [
             'id', 'user', 'transaction_type', 'category', 'amount',
             'source_account', 'destination_account', 'recipient_name',
-            'description', 'date', 'created_at', 'category_display'
+            'description', 'date', 'created_at', 'category_display',
+            'transaction_type_display'
         ]
         read_only_fields = ['user']
 
