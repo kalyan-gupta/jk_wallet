@@ -335,7 +335,7 @@ def admin_settings(request):
             'model': 'Transaction',
             'action': action_name,
             'action_type': h.history_type,
-            'details': f"₹{h.amount:,.2f} ({h.get_transaction_type_display()}) - {h.category_display}"
+            'details': f"₹{h.amount:,.2f} ({h.get_transaction_type_display()}) - {h.get_category_display()}"
         })
 
     recent_acc_history = Account.history.select_related('history_user')[:10]
